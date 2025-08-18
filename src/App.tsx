@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { startOfWeek } from 'date-fns';
 import Header from './components/Header';
 import AttendanceCalendar from './components/AttendanceCalendar';
@@ -11,6 +11,8 @@ type ViewType = 'calendar' | 'employees' | 'settings';
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewType>('calendar');
   const [selectedDate, setSelectedDate] = useState<Date>(startOfWeek(new Date(), { weekStartsOn: 1 }));
+
+
 
   const renderCurrentView = () => {
     switch (currentView) {
