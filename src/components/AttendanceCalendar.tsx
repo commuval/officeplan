@@ -260,11 +260,7 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
                               {getStatusIcon(entry?.status || null)}
                               <span className="ml-1">{getStatusText(entry?.status || null)}</span>
                             </div>
-                            {!entry && getDogCountForDate(date) >= 2 && (
-                              <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
-                                !
-                              </div>
-                            )}
+                            
                           </div>
                         </td>
                       );
