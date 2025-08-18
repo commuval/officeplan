@@ -102,6 +102,14 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
     const existingEntry = getAttendanceForEmployeeAndDate(employeeId, date);
     const dogCount = getDogCountForDate(date);
     
+    console.log('DEBUG - Click:', {
+      employeeId,
+      date: format(date, 'yyyy-MM-dd'),
+      existingStatus: existingEntry?.status,
+      dogCount,
+      allEntriesForDate: attendance.filter(entry => entry.date === format(date, 'yyyy-MM-dd'))
+    });
+    
     if (existingEntry) {
       // Status durchwechseln: abwesend -> anwesend -> mit hund -> abwesend
       let newStatus: AttendanceStatus;
@@ -137,6 +145,7 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
         status: newStatus,
       };
       
+      console.log('DEBUG - New entry:', { newStatus, dogCount });
       storage.addAttendanceEntry(newEntry);
     }
     
