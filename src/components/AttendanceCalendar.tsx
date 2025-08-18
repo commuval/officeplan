@@ -110,7 +110,7 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
       } else if (existingEntry.status === 'present') {
         // Prüfen ob bereits 2 Hunde da sind
         if (dogCount >= 2) {
-          // Wenn bereits 2 Hunde da sind, direkt zu "Abwesend" wechseln
+          // Wenn bereits 2 Hunde da sind, zu "Abwesend" wechseln
           newStatus = 'absent';
         } else {
           newStatus = 'present_with_dog';
@@ -128,12 +128,13 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
       
       storage.addAttendanceEntry(updatedEntry);
     } else {
-      // Neuen Eintrag erstellen
+      // Neuen Eintrag erstellen - nur "Mit Hund" wenn weniger als 2 Hunde da sind
+      const newStatus = dogCount < 2 ? 'present_with_dog' : 'present';
       const newEntry: AttendanceEntry = {
         id: Date.now().toString(),
         employeeId: employeeId,
         date: format(date, 'yyyy-MM-dd'),
-        status: 'present',
+        status: newStatus,
       };
       
       storage.addAttendanceEntry(newEntry);
@@ -184,7 +185,7 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
               <div className="flex items-center justify-center mt-2 space-x-4 text-sm text-gray-600">
                 <div className="flex items-center">
                   <Dog className="w-4 h-4 mr-1" />
-                  <span>Max 2 Hunde pro Tag</span>
+                  <span>Empfohlen: Max 2 Hunde pro Tag</span>
                 </div>
               </div>
             )}
@@ -249,6 +250,7 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
                     </td>
                     {currentWeek.map((date) => {
                       const entry = getAttendanceForEmployeeAndDate(employee.id, date);
+                      const dogCount = getDogCountForDate(date);
                       return (
                         <td 
                           key={date.toISOString()} 
@@ -262,6 +264,7 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
                             </div>
                             
                           </div>
+
                         </td>
                       );
                     })}
