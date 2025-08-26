@@ -91,16 +91,18 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
     );
   };
 
-  const getDogCountForDate = (date: Date) => {
+  const getDogCountForDate = (date: Date, excludeEmployeeId?: string) => {
     const dateStr = format(date, 'yyyy-MM-dd');
     return attendance.filter(entry => 
-      entry.date === dateStr && entry.status === 'present_with_dog'
+      entry.date === dateStr && 
+      entry.status === 'present_with_dog' &&
+      entry.employeeId !== excludeEmployeeId
     ).length;
   };
 
   const handleCellClick = (employeeId: string, date: Date) => {
     const existingEntry = getAttendanceForEmployeeAndDate(employeeId, date);
-    const dogCount = getDogCountForDate(date);
+    const dogCount = getDogCountForDate(date, employeeId);
     
     console.log('DEBUG - Click:', {
       employeeId,
@@ -111,22 +113,26 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
     });
     
     if (existingEntry) {
-      // Status durchwechseln: abwesend -> anwesend -> mit hund -> abwesend
+      // Einfache Status-Reihenfolge: abwesend -> anwesend -> mit hund -> abwesend
       let newStatus: AttendanceStatus;
-      if (existingEntry.status === 'absent') {
-        newStatus = 'present';
-      } else if (existingEntry.status === 'present') {
-        // Immer zu "Mit Hund" wechseln, wenn weniger als 2 Hunde da sind
-        if (dogCount < 2) {
-          newStatus = 'present_with_dog';
-        } else {
-          // Wenn bereits 2 Hunde da sind, zu "Abwesend" wechseln
+      
+      switch (existingEntry.status) {
+        case 'absent':
+          newStatus = 'present';
+          break;
+        case 'present':
+          // Prüfen ob wir zu "Mit Hund" wechseln können
+          if (dogCount < 2) {
+            newStatus = 'present_with_dog';
+          } else {
+            newStatus = 'absent';
+          }
+          break;
+        case 'present_with_dog':
           newStatus = 'absent';
-        }
-      } else if (existingEntry.status === 'present_with_dog') {
-        newStatus = 'absent';
-      } else {
-        newStatus = 'absent';
+          break;
+        default:
+          newStatus = 'absent';
       }
       
       const updatedEntry: AttendanceEntry = {
@@ -136,16 +142,15 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
       
       storage.addAttendanceEntry(updatedEntry);
     } else {
-      // Neuen Eintrag erstellen - immer "Mit Hund" als ersten Status
-      const newStatus = 'present_with_dog';
+      // Neuen Eintrag erstellen - starten mit "Mit Hund"
       const newEntry: AttendanceEntry = {
         id: Date.now().toString(),
         employeeId: employeeId,
         date: format(date, 'yyyy-MM-dd'),
-        status: newStatus,
+        status: 'present_with_dog',
       };
       
-      console.log('DEBUG - New entry:', { newStatus, dogCount });
+      console.log('DEBUG - New entry: present_with_dog');
       storage.addAttendanceEntry(newEntry);
     }
     
