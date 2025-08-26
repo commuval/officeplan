@@ -116,12 +116,12 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
       if (existingEntry.status === 'absent') {
         newStatus = 'present';
       } else if (existingEntry.status === 'present') {
-        // Prüfen ob bereits 2 Hunde da sind
-        if (dogCount >= 2) {
+        // Immer zu "Mit Hund" wechseln, wenn weniger als 2 Hunde da sind
+        if (dogCount < 2) {
+          newStatus = 'present_with_dog';
+        } else {
           // Wenn bereits 2 Hunde da sind, zu "Abwesend" wechseln
           newStatus = 'absent';
-        } else {
-          newStatus = 'present_with_dog';
         }
       } else if (existingEntry.status === 'present_with_dog') {
         newStatus = 'absent';
@@ -136,8 +136,8 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
       
       storage.addAttendanceEntry(updatedEntry);
     } else {
-      // Neuen Eintrag erstellen - nur "Mit Hund" wenn weniger als 2 Hunde da sind
-      const newStatus = dogCount < 2 ? 'present_with_dog' : 'present';
+      // Neuen Eintrag erstellen - immer "Mit Hund" als ersten Status
+      const newStatus = 'present_with_dog';
       const newEntry: AttendanceEntry = {
         id: Date.now().toString(),
         employeeId: employeeId,
