@@ -16,44 +16,103 @@ const DEFAULT_DEPARTMENTS: Department[] = [
   { id: '5', name: 'Finanzen', color: '#ef4444' },
 ];
 
-// Standard-Mitarbeiter - leer für neues Deployment
-const DEFAULT_EMPLOYEES: Employee[] = [];
+// Standard-Mitarbeiter
+const DEFAULT_EMPLOYEES: Employee[] = [
+  { id: '1', name: 'Max Mustermann', department: 'IT' },
+  { id: '2', name: 'Anna Schmidt', department: 'Marketing' },
+  { id: '3', name: 'Tom Weber', department: 'Vertrieb' },
+  { id: '4', name: 'Lisa Müller', department: 'HR' },
+  { id: '5', name: 'Peter Fischer', department: 'Finanzen' },
+];
 
 export const storage = {
+  
+  // Hilfsfunktion für sicheres localStorage
+  safeLocalStorage: {
+    getItem: (key: string): string | null => {
+      try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          return window.localStorage.getItem(key);
+        }
+        return null;
+      } catch (error) {
+        console.warn('localStorage nicht verfügbar:', error);
+        return null;
+      }
+    },
+    
+    setItem: (key: string, value: string): void => {
+      try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.setItem(key, value);
+        }
+      } catch (error) {
+        console.warn('localStorage nicht verfügbar:', error);
+      }
+    },
+    
+    removeItem: (key: string): void => {
+      try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.removeItem(key);
+        }
+      } catch (error) {
+        console.warn('localStorage nicht verfügbar:', error);
+      }
+    }
+  },
+  
   // Abteilungen
   getDepartments: (): Department[] => {
-    const stored = localStorage.getItem(STORAGE_KEYS.DEPARTMENTS);
+    const stored = storage.safeLocalStorage.getItem(STORAGE_KEYS.DEPARTMENTS);
     if (stored) {
-      return JSON.parse(stored);
+      try {
+        return JSON.parse(stored);
+      } catch (error) {
+        console.warn('Fehler beim Parsen der Abteilungsdaten:', error);
+      }
     }
     // Erste Initialisierung
-    localStorage.setItem(STORAGE_KEYS.DEPARTMENTS, JSON.stringify(DEFAULT_DEPARTMENTS));
+    storage.safeLocalStorage.setItem(STORAGE_KEYS.DEPARTMENTS, JSON.stringify(DEFAULT_DEPARTMENTS));
     return DEFAULT_DEPARTMENTS;
   },
 
   setDepartments: (departments: Department[]): void => {
-    localStorage.setItem(STORAGE_KEYS.DEPARTMENTS, JSON.stringify(departments));
+    storage.safeLocalStorage.setItem(STORAGE_KEYS.DEPARTMENTS, JSON.stringify(departments));
   },
 
   // Mitarbeiter
   getEmployees: (): Employee[] => {
-    const stored = localStorage.getItem(STORAGE_KEYS.EMPLOYEES);
+    const stored = storage.safeLocalStorage.getItem(STORAGE_KEYS.EMPLOYEES);
     if (stored) {
-      return JSON.parse(stored);
+      try {
+        return JSON.parse(stored);
+      } catch (error) {
+        console.warn('Fehler beim Parsen der Mitarbeiterdaten:', error);
+      }
     }
     // Erste Initialisierung
-    localStorage.setItem(STORAGE_KEYS.EMPLOYEES, JSON.stringify(DEFAULT_EMPLOYEES));
+    storage.safeLocalStorage.setItem(STORAGE_KEYS.EMPLOYEES, JSON.stringify(DEFAULT_EMPLOYEES));
     return DEFAULT_EMPLOYEES;
   },
 
   setEmployees: (employees: Employee[]): void => {
-    localStorage.setItem(STORAGE_KEYS.EMPLOYEES, JSON.stringify(employees));
+    storage.safeLocalStorage.setItem(STORAGE_KEYS.EMPLOYEES, JSON.stringify(employees));
   },
 
   // Anwesenheit
   getAttendance: (): AttendanceEntry[] => {
-    const stored = localStorage.getItem(STORAGE_KEYS.ATTENDANCE);
-    const attendance = stored ? JSON.parse(stored) : [];
+    const stored = storage.safeLocalStorage.getItem(STORAGE_KEYS.ATTENDANCE);
+    let attendance: AttendanceEntry[] = [];
+    
+    if (stored) {
+      try {
+        attendance = JSON.parse(stored);
+      } catch (error) {
+        console.warn('Fehler beim Parsen der Anwesenheitsdaten:', error);
+        attendance = [];
+      }
+    }
     
     // Alte Daten bereinigen (älter als 1 Woche)
     const cleanedAttendance = storage.cleanOldAttendanceData(attendance);
@@ -65,7 +124,7 @@ export const storage = {
   },
 
   setAttendance: (attendance: AttendanceEntry[]): void => {
-    localStorage.setItem(STORAGE_KEYS.ATTENDANCE, JSON.stringify(attendance));
+    storage.safeLocalStorage.setItem(STORAGE_KEYS.ATTENDANCE, JSON.stringify(attendance));
   },
 
   // Hilfsfunktionen
@@ -109,9 +168,9 @@ export const storage = {
 
   // Daten zurücksetzen
   resetData: (): void => {
-    localStorage.removeItem(STORAGE_KEYS.EMPLOYEES);
-    localStorage.removeItem(STORAGE_KEYS.ATTENDANCE);
-    localStorage.removeItem(STORAGE_KEYS.DEPARTMENTS);
+    storage.safeLocalStorage.removeItem(STORAGE_KEYS.EMPLOYEES);
+    storage.safeLocalStorage.removeItem(STORAGE_KEYS.ATTENDANCE);
+    storage.safeLocalStorage.removeItem(STORAGE_KEYS.DEPARTMENTS);
   },
 };
 
