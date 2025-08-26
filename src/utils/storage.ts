@@ -32,11 +32,14 @@ export const storage = {
     getItem: (key: string): string | null => {
       try {
         if (typeof window !== 'undefined' && window.localStorage) {
-          return window.localStorage.getItem(key);
+          const result = window.localStorage.getItem(key);
+          console.log(`localStorage getItem(${key}):`, result ? 'Daten gefunden' : 'Keine Daten');
+          return result;
         }
+        console.warn('localStorage nicht verfügbar - window oder localStorage fehlt');
         return null;
       } catch (error) {
-        console.warn('localStorage nicht verfügbar:', error);
+        console.error('localStorage Fehler beim Lesen:', error);
         return null;
       }
     },
@@ -45,9 +48,12 @@ export const storage = {
       try {
         if (typeof window !== 'undefined' && window.localStorage) {
           window.localStorage.setItem(key, value);
+          console.log(`localStorage setItem(${key}): Erfolgreich gespeichert`);
+        } else {
+          console.warn('localStorage nicht verfügbar - kann nicht speichern');
         }
       } catch (error) {
-        console.warn('localStorage nicht verfügbar:', error);
+        console.error('localStorage Fehler beim Speichern:', error);
       }
     },
     
@@ -55,9 +61,12 @@ export const storage = {
       try {
         if (typeof window !== 'undefined' && window.localStorage) {
           window.localStorage.removeItem(key);
+          console.log(`localStorage removeItem(${key}): Erfolgreich entfernt`);
+        } else {
+          console.warn('localStorage nicht verfügbar - kann nicht entfernen');
         }
       } catch (error) {
-        console.warn('localStorage nicht verfügbar:', error);
+        console.error('localStorage Fehler beim Entfernen:', error);
       }
     }
   },

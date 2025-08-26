@@ -111,6 +111,69 @@ src/
 npm run build
 ```
 
+## 🚀 Deployment auf DigitalOcean
+
+### Voraussetzungen
+- Node.js 16+ installiert
+- npm installiert
+- DigitalOcean Droplet mit Ubuntu
+
+### Deployment-Schritte
+
+1. **Lokaler Build:**
+   ```bash
+   npm install
+   npm run build
+   ```
+
+2. **Dateien auf Server kopieren:**
+   ```bash
+   # Ersetzen Sie 'your-server' mit Ihrer Server-IP
+   rsync -avz --delete build/ root@your-server:/var/www/office-plan/build/
+   rsync -avz nginx.conf root@your-server:/etc/nginx/sites-available/office-plan
+   ```
+
+3. **Nginx konfigurieren:**
+   ```bash
+   ssh root@your-server
+   sudo ln -sf /etc/nginx/sites-available/office-plan /etc/nginx/sites-enabled/
+   sudo nginx -t
+   sudo systemctl reload nginx
+   ```
+
+4. **Server starten:**
+   ```bash
+   # Auf dem Server
+   cd /var/www/office-plan
+   npm install
+   pm2 start server.js --name "office-plan"
+   ```
+
+### Troubleshooting
+
+**Problem: Status "Mit Hund" funktioniert nicht**
+- Öffnen Sie die Browser-Konsole (F12)
+- Prüfen Sie die Debug-Logs
+- Stellen Sie sicher, dass localStorage verfügbar ist
+
+**Problem: Anwendung lädt nicht**
+- Prüfen Sie die nginx-Logs: `sudo tail -f /var/log/nginx/error.log`
+- Prüfen Sie die Server-Logs: `pm2 logs office-plan`
+
+**Problem: Cache-Probleme**
+- Leeren Sie den Browser-Cache
+- Prüfen Sie die nginx-Cache-Einstellungen
+- Verwenden Sie Hard-Refresh (Ctrl+F5)
+
+### Browser-Kompatibilität
+- Chrome 60+
+- Firefox 55+
+- Safari 12+
+- Edge 79+
+
+### Debug-Modus
+Die Anwendung enthält umfangreiche Debug-Logs. Öffnen Sie die Browser-Konsole (F12) um diese zu sehen.
+
 ## Lizenz
 
 MIT License - Siehe LICENSE-Datei für Details.
