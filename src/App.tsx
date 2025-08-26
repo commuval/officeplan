@@ -5,6 +5,7 @@ import AttendanceCalendar from './components/AttendanceCalendar';
 import EmployeeManagement from './components/EmployeeManagement';
 import Settings from './components/Settings';
 import './index.css';
+import { DATA_VERSION } from './config';
 
 type ViewType = 'calendar' | 'employees' | 'settings';
 
@@ -12,7 +13,16 @@ const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewType>('calendar');
   const [selectedDate, setSelectedDate] = useState<Date>(startOfWeek(new Date(), { weekStartsOn: 1 }));
 
-
+  // Automatisches Daten-Reset nur bei neuem Deployment (Versionswechsel)
+  useEffect(() => {
+    const storedVersion = localStorage.getItem('office_plan_data_version');
+    if (storedVersion !== DATA_VERSION) {
+      localStorage.removeItem('office_plan_employees');
+      localStorage.removeItem('office_plan_attendance');
+      localStorage.removeItem('office_plan_departments');
+      localStorage.setItem('office_plan_data_version', DATA_VERSION);
+    }
+  }, []);
 
   const renderCurrentView = () => {
     switch (currentView) {
