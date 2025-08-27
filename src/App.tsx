@@ -16,11 +16,17 @@ const App: React.FC = () => {
   // Automatisches Daten-Reset nur bei neuem Deployment (Versionswechsel)
   useEffect(() => {
     const storedVersion = localStorage.getItem('office_plan_data_version');
+    console.log('Versions-Check:', { storedVersion, currentVersion: DATA_VERSION });
+    
     if (storedVersion !== DATA_VERSION) {
+      console.log('Versionswechsel erkannt - Daten werden zurückgesetzt');
       localStorage.removeItem('office_plan_employees');
       localStorage.removeItem('office_plan_attendance');
       localStorage.removeItem('office_plan_departments');
       localStorage.setItem('office_plan_data_version', DATA_VERSION);
+      
+      // Seite neu laden um sicherzustellen, dass alle Komponenten mit den neuen Daten arbeiten
+      window.location.reload();
     }
   }, []);
 

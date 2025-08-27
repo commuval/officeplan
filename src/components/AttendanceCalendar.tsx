@@ -107,24 +107,32 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
   const handleCellClick = (employeeId: string, date: Date) => {
     const existingEntry = getAttendanceForEmployeeAndDate(employeeId, date);
     const dogCount = getDogCountForDate(date);
+    const dateStr = format(date, 'yyyy-MM-dd');
     
     console.log('DEBUG - Click:', {
       employeeId,
-      date: format(date, 'yyyy-MM-dd'),
+      date: dateStr,
       existingStatus: existingEntry?.status,
       dogCount,
-      allEntriesForDate: attendance.filter(entry => entry.date === format(date, 'yyyy-MM-dd')),
+      allEntriesForDate: attendance.filter(entry => entry.date === dateStr),
       localStorageAvailable: typeof window !== 'undefined' && !!window.localStorage
     });
     
     if (existingEntry) {
       // Status durchwechseln: abwesend -> anwesend -> mit hund -> abwesend
       let newStatus: AttendanceStatus;
+      
       if (existingEntry.status === 'absent') {
         newStatus = 'present';
       } else if (existingEntry.status === 'present') {
-        // Immer zu "Mit Hund" wechseln, wenn weniger als 2 Hunde da sind
-        if (dogCount < 2) {
+        // Prüfen, ob bereits 2 Hunde für diesen Tag vorhanden sind
+        const currentDogCount = attendance.filter(entry => 
+          entry.date === dateStr && 
+          entry.status === 'present_with_dog' &&
+          entry.employeeId !== employeeId // Aktueller Mitarbeiter nicht mitzählen
+        ).length;
+        
+        if (currentDogCount < 2) {
           newStatus = 'present_with_dog';
         } else {
           // Wenn bereits 2 Hunde da sind, zu "Abwesend" wechseln
@@ -143,19 +151,31 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
       
       storage.addAttendanceEntry(updatedEntry);
     } else {
-      // Neuen Eintrag erstellen - immer "Mit Hund" als ersten Status
-      const newStatus = 'present_with_dog';
+      // Neuen Eintrag erstellen - prüfen, ob bereits 2 Hunde vorhanden sind
+      const currentDogCount = attendance.filter(entry => 
+        entry.date === dateStr && 
+        entry.status === 'present_with_dog'
+      ).length;
+      
+      let newStatus: AttendanceStatus;
+      if (currentDogCount < 2) {
+        newStatus = 'present_with_dog';
+      } else {
+        newStatus = 'present';
+      }
+      
       const newEntry: AttendanceEntry = {
         id: Date.now().toString(),
         employeeId: employeeId,
-        date: format(date, 'yyyy-MM-dd'),
+        date: dateStr,
         status: newStatus,
       };
       
-      console.log('DEBUG - New entry:', { newStatus, dogCount });
+      console.log('DEBUG - New entry:', { newStatus, currentDogCount });
       storage.addAttendanceEntry(newEntry);
     }
     
+    // Daten neu laden um sicherzustellen, dass alles synchron ist
     setAttendance(storage.getAttendance());
   };
 
@@ -203,6 +223,16 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
                   <Dog className="w-4 h-4 mr-1" />
                   <span>Empfohlen: Max 2 Hunde pro Tag</span>
                 </div>
+                {currentWeek.map((date) => {
+                  const dogCount = getDogCountForDate(date);
+                  return (
+                    <div key={date.toISOString()} className="flex items-center">
+                      <span className="text-xs text-gray-500">
+                        {format(date, 'dd.MM')}: {dogCount}/2 Hunde
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -279,6 +309,12 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
                               <span className="ml-1">{getStatusText(entry?.status || null)}</span>
                             </div>
                             
+                            {/* Hund-Limit-Indikator */}
+                            {dogCount >= 2 && (
+                              <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
+                                !
+                              </div>
+                            )}
                           </div>
 
                         </td>

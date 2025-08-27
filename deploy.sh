@@ -2,6 +2,10 @@
 
 echo "🚀 Starte Deployment..."
 
+# Version automatisch aktualisieren
+echo "🔄 Aktualisiere Version..."
+node update-version.js
+
 # Build der Anwendung
 echo "📦 Baue Anwendung..."
 npm run build
