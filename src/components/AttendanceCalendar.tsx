@@ -244,16 +244,6 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
                   <Dog className="w-4 h-4 mr-1" />
                   <span>Empfohlen: Max 2 Hunde pro Tag</span>
                 </div>
-                {currentWeek.map((date) => {
-                  const dogCount = getDogCountForDate(date);
-                  return (
-                    <div key={date.toISOString()} className="flex items-center">
-                      <span className="text-xs text-gray-500">
-                        {format(date, 'dd.MM')}: {dogCount}/2 Hunde
-                      </span>
-                    </div>
-                  );
-                })}
               </div>
             )}
           </div>
