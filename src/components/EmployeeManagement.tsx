@@ -61,9 +61,20 @@ const EmployeeManagement: React.FC = () => {
 
   const handleDelete = (employeeId: string) => {
     if (window.confirm('Sind Sie sicher, dass Sie diesen Mitarbeiter löschen möchten?')) {
+      // Mitarbeiter aus der Liste entfernen
       const updatedEmployees = employees.filter(emp => emp.id !== employeeId);
       storage.setEmployees(updatedEmployees);
       setEmployees(updatedEmployees);
+      
+      // Anwesenheitsdaten des gelöschten Mitarbeiters entfernen
+      const currentAttendance = storage.getAttendance();
+      const cleanedAttendance = currentAttendance.filter(entry => entry.employeeId !== employeeId);
+      storage.setAttendance(cleanedAttendance);
+      
+      console.log('Mitarbeiter gelöscht:', {
+        employeeId,
+        removedAttendanceEntries: currentAttendance.length - cleanedAttendance.length
+      });
     }
   };
 
@@ -86,13 +97,31 @@ const EmployeeManagement: React.FC = () => {
           <h2 className="text-2xl font-bold text-gray-900">Mitarbeiterverwaltung</h2>
           <p className="text-gray-600">Verwalten Sie Ihre Mitarbeiter und deren Abteilungen</p>
         </div>
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="btn-primary flex items-center"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Mitarbeiter hinzufügen
-        </button>
+        <div className="flex space-x-3">
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="btn-primary flex items-center"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Mitarbeiter hinzufügen
+          </button>
+          
+          {employees.length > 0 && (
+            <button
+              onClick={() => {
+                if (window.confirm('Sind Sie sicher, dass Sie ALLE Mitarbeiter löschen möchten? Dies löscht auch alle Anwesenheitsdaten!')) {
+                  storage.setEmployees([]);
+                  storage.setAttendance([]);
+                  setEmployees([]);
+                }
+              }}
+              className="btn-secondary flex items-center text-red-600 hover:text-red-700"
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Alle löschen
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Statistiken */}

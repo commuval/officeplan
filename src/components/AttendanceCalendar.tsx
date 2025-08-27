@@ -41,6 +41,9 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
   }, []);
 
   const loadData = () => {
+    // Verwaiste Anwesenheitsdaten bereinigen
+    storage.cleanOrphanedAttendanceData();
+    
     setEmployees(storage.getEmployees());
     setAttendance(storage.getAttendance());
   };
@@ -197,7 +200,16 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
     }
     
     // Daten neu laden um sicherzustellen, dass alles synchron ist
-    setAttendance(storage.getAttendance());
+    const updatedAttendance = storage.getAttendance();
+    setAttendance(updatedAttendance);
+    
+    console.log('Status aktualisiert:', {
+      employeeId,
+      date: dateStr,
+      newStatus: existingEntry ? 'updated' : 'created',
+      totalAttendanceEntries: updatedAttendance.length,
+      entriesForDate: updatedAttendance.filter(entry => entry.date === dateStr).length
+    });
   };
 
   const handlePreviousWeek = () => {

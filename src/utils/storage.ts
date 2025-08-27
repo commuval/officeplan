@@ -201,5 +201,25 @@ export const storage = {
     storage.safeLocalStorage.removeItem(STORAGE_KEYS.ATTENDANCE);
     storage.safeLocalStorage.removeItem(STORAGE_KEYS.DEPARTMENTS);
   },
+
+  // Anwesenheitsdaten für nicht existierende Mitarbeiter bereinigen
+  cleanOrphanedAttendanceData: (): void => {
+    const employees = storage.getEmployees();
+    const attendance = storage.getAttendance();
+    const employeeIds = employees.map(emp => emp.id);
+    
+    const cleanedAttendance = attendance.filter(entry => 
+      employeeIds.includes(entry.employeeId)
+    );
+    
+    if (cleanedAttendance.length !== attendance.length) {
+      console.log('Bereinige verwaiste Anwesenheitsdaten:', {
+        before: attendance.length,
+        after: cleanedAttendance.length,
+        removed: attendance.length - cleanedAttendance.length
+      });
+      storage.setAttendance(cleanedAttendance);
+    }
+  },
 };
 
