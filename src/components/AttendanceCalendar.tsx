@@ -30,6 +30,16 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
     generateWeekDays();
   }, [selectedDate]);
 
+  // Daten neu laden wenn sich Mitarbeiter oder Anwesenheitsdaten ändern
+  useEffect(() => {
+    const unsubscribe = storage.onDataChange(() => {
+      console.log('Datenänderung erkannt - lade Daten neu');
+      loadData();
+    });
+
+    return unsubscribe;
+  }, []);
+
   const loadData = () => {
     setEmployees(storage.getEmployees());
     setAttendance(storage.getAttendance());
@@ -160,8 +170,20 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
       let newStatus: AttendanceStatus;
       if (currentDogCount < 2) {
         newStatus = 'present_with_dog';
+        console.log('DEBUG - Neuer Eintrag mit Hund-Status erstellt:', { 
+          employeeId, 
+          date: dateStr, 
+          currentDogCount,
+          newStatus 
+        });
       } else {
         newStatus = 'present';
+        console.log('DEBUG - Neuer Eintrag ohne Hund-Status (Limit erreicht):', { 
+          employeeId, 
+          date: dateStr, 
+          currentDogCount,
+          newStatus 
+        });
       }
       
       const newEntry: AttendanceEntry = {
@@ -171,7 +193,6 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
         status: newStatus,
       };
       
-      console.log('DEBUG - New entry:', { newStatus, currentDogCount });
       storage.addAttendanceEntry(newEntry);
     }
     
@@ -308,13 +329,6 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
                               {getStatusIcon(entry?.status || null)}
                               <span className="ml-1">{getStatusText(entry?.status || null)}</span>
                             </div>
-                            
-                            {/* Hund-Limit-Indikator */}
-                            {dogCount >= 2 && (
-                              <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
-                                !
-                              </div>
-                            )}
                           </div>
 
                         </td>

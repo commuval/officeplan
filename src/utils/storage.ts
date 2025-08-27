@@ -25,7 +25,25 @@ const DEFAULT_EMPLOYEES: Employee[] = [
   { id: '5', name: 'Peter Fischer', department: 'Finanzen' },
 ];
 
+// Event-System für Datenänderungen
+const dataChangeCallbacks: (() => void)[] = [];
+
+const notifyDataChange = () => {
+  dataChangeCallbacks.forEach(callback => callback());
+};
+
 export const storage = {
+  
+  // Event-System
+  onDataChange: (callback: () => void) => {
+    dataChangeCallbacks.push(callback);
+    return () => {
+      const index = dataChangeCallbacks.indexOf(callback);
+      if (index > -1) {
+        dataChangeCallbacks.splice(index, 1);
+      }
+    };
+  },
   
   // Hilfsfunktion für sicheres localStorage
   safeLocalStorage: {
@@ -107,6 +125,7 @@ export const storage = {
 
   setEmployees: (employees: Employee[]): void => {
     storage.safeLocalStorage.setItem(STORAGE_KEYS.EMPLOYEES, JSON.stringify(employees));
+    notifyDataChange();
   },
 
   // Anwesenheit
@@ -134,6 +153,7 @@ export const storage = {
 
   setAttendance: (attendance: AttendanceEntry[]): void => {
     storage.safeLocalStorage.setItem(STORAGE_KEYS.ATTENDANCE, JSON.stringify(attendance));
+    notifyDataChange();
   },
 
   // Hilfsfunktionen
