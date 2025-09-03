@@ -47,9 +47,10 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
     
     let allEmployees = storage.getEmployees();
     
-    // Sortiere Mitarbeiter: Der erste (älteste) bleibt oben, neue kommen darunter
+    // Wenn es Mitarbeiter gibt, den ersten lokal hinzugefügten immer ganz oben anzeigen
     if (allEmployees.length > 0) {
-      // Sortiere nach ID (ältere IDs = niedrigere Zahlen = zuerst hinzugefügt)
+      // Der erste Mitarbeiter (niedrigste ID) wird immer ganz oben angezeigt
+      // Neue Mitarbeiter kommen darunter
       allEmployees.sort((a, b) => {
         const idA = parseInt(a.id);
         const idB = parseInt(b.id);
