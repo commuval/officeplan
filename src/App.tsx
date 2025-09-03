@@ -2,12 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { startOfWeek } from 'date-fns';
 import Header from './components/Header';
 import AttendanceCalendar from './components/AttendanceCalendar';
-import EmployeeManagement from './components/EmployeeManagement';
-import Settings from './components/Settings';
 import './index.css';
 import { DATA_VERSION } from './config';
 
-type ViewType = 'calendar' | 'employees' | 'settings';
+type ViewType = 'calendar';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewType>('calendar');
@@ -31,26 +29,12 @@ const App: React.FC = () => {
   }, []);
 
   const renderCurrentView = () => {
-    switch (currentView) {
-      case 'calendar':
-        return (
-          <AttendanceCalendar
-            selectedDate={selectedDate}
-            onDateSelect={setSelectedDate}
-          />
-        );
-      case 'employees':
-        return <EmployeeManagement />;
-      case 'settings':
-        return <Settings />;
-      default:
-        return (
-          <AttendanceCalendar
-            selectedDate={selectedDate}
-            onDateSelect={setSelectedDate}
-          />
-        );
-    }
+    return (
+      <AttendanceCalendar
+        selectedDate={selectedDate}
+        onDateSelect={setSelectedDate}
+      />
+    );
   };
 
   return (

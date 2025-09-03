@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { format, startOfWeek, addDays, isToday } from 'date-fns';
 import { de } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, User, X, Plus, Dog } from 'lucide-react';
+import { ChevronLeft, ChevronRight, User, X, Plus, Dog, Trash2 } from 'lucide-react';
 import { Employee, AttendanceEntry, AttendanceStatus } from '../types';
 import { storage } from '../utils/storage';
 
@@ -14,6 +14,7 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [attendance, setAttendance] = useState<AttendanceEntry[]>([]);
   const [currentWeek, setCurrentWeek] = useState<Date[]>([]);
+  const [newEmployeeName, setNewEmployeeName] = useState('');
 
   useEffect(() => {
     console.log('AttendanceCalendar - Initialisierung:', {
@@ -44,7 +45,19 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
     // Verwaiste Anwesenheitsdaten bereinigen
     storage.cleanOrphanedAttendanceData();
     
-    setEmployees(storage.getEmployees());
+    let allEmployees = storage.getEmployees();
+    
+    // Sortiere Mitarbeiter: Der erste (älteste) bleibt oben, neue kommen darunter
+    if (allEmployees.length > 0) {
+      // Sortiere nach ID (ältere IDs = niedrigere Zahlen = zuerst hinzugefügt)
+      allEmployees.sort((a, b) => {
+        const idA = parseInt(a.id);
+        const idB = parseInt(b.id);
+        return idA - idB; // Aufsteigend sortieren (älteste zuerst)
+      });
+    }
+    
+    setEmployees(allEmployees);
     setAttendance(storage.getAttendance());
   };
 
@@ -132,29 +145,22 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
     });
     
     if (existingEntry) {
-      // Status durchwechseln: abwesend -> anwesend -> mit hund -> abwesend
+      // Status durchwechseln: anwesend -> abwesend -> mit hund -> anwesend -> abwesend -> mit hund...
       let newStatus: AttendanceStatus;
       
-      if (existingEntry.status === 'absent') {
-        newStatus = 'present';
-      } else if (existingEntry.status === 'present') {
-        // Prüfen, ob bereits 2 Hunde für diesen Tag vorhanden sind
-        const currentDogCount = attendance.filter(entry => 
-          entry.date === dateStr && 
-          entry.status === 'present_with_dog' &&
-          entry.employeeId !== employeeId // Aktueller Mitarbeiter nicht mitzählen
-        ).length;
-        
-        if (currentDogCount < 2) {
-          newStatus = 'present_with_dog';
+      if (existingEntry.status === 'present') {
+        newStatus = 'absent';
+      } else if (existingEntry.status === 'absent') {
+        // Prüfe ob bereits 2 Hunde für diesen Tag vorhanden sind
+        if (dogCount >= 2) {
+          newStatus = 'present'; // Überspringe "mit Hund" wenn bereits 2 Hunde da sind
         } else {
-          // Wenn bereits 2 Hunde da sind, zu "Abwesend" wechseln
-          newStatus = 'absent';
+          newStatus = 'present_with_dog';
         }
       } else if (existingEntry.status === 'present_with_dog') {
-        newStatus = 'absent';
+        newStatus = 'present';
       } else {
-        newStatus = 'absent';
+        newStatus = 'present';
       }
       
       const updatedEntry: AttendanceEntry = {
@@ -164,30 +170,8 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
       
       storage.addAttendanceEntry(updatedEntry);
     } else {
-      // Neuen Eintrag erstellen - prüfen, ob bereits 2 Hunde vorhanden sind
-      const currentDogCount = attendance.filter(entry => 
-        entry.date === dateStr && 
-        entry.status === 'present_with_dog'
-      ).length;
-      
-      let newStatus: AttendanceStatus;
-      if (currentDogCount < 2) {
-        newStatus = 'present_with_dog';
-        console.log('DEBUG - Neuer Eintrag mit Hund-Status erstellt:', { 
-          employeeId, 
-          date: dateStr, 
-          currentDogCount,
-          newStatus 
-        });
-      } else {
-        newStatus = 'present';
-        console.log('DEBUG - Neuer Eintrag ohne Hund-Status (Limit erreicht):', { 
-          employeeId, 
-          date: dateStr, 
-          currentDogCount,
-          newStatus 
-        });
-      }
+      // Neuen Eintrag erstellen - immer mit "Anwesend" beginnen
+      const newStatus: AttendanceStatus = 'present';
       
       const newEntry: AttendanceEntry = {
         id: Date.now().toString(),
@@ -210,6 +194,46 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
       totalAttendanceEntries: updatedAttendance.length,
       entriesForDate: updatedAttendance.filter(entry => entry.date === dateStr).length
     });
+  };
+
+  const handleAddEmployee = () => {
+    if (!newEmployeeName.trim()) return;
+
+    const newEmployee: Employee = {
+      id: Date.now().toString(),
+      name: newEmployeeName.trim(),
+      department: 'Unbekannt', // Standardwert
+    };
+
+    storage.addEmployee(newEmployee);
+    setNewEmployeeName('');
+    loadData(); // Daten neu laden, um den neuen Mitarbeiter zu sehen
+  };
+
+  const handleDeleteEmployee = (employeeId: string) => {
+    const employee = employees.find(emp => emp.id === employeeId);
+    if (!employee) return;
+    
+    const confirmMessage = `Sind Sie sicher, dass Sie "${employee.name}" löschen möchten?\n\nDies löscht auch alle Anwesenheitsdaten dieser Person.`;
+    
+    if (window.confirm(confirmMessage)) {
+      // Mitarbeiter aus der Liste entfernen
+      const updatedEmployees = employees.filter(emp => emp.id !== employeeId);
+      storage.setEmployees(updatedEmployees);
+      setEmployees(updatedEmployees);
+      
+      // Anwesenheitsdaten des gelöschten Mitarbeiters entfernen
+      const currentAttendance = storage.getAttendance();
+      const cleanedAttendance = currentAttendance.filter(entry => entry.employeeId !== employeeId);
+      storage.setAttendance(cleanedAttendance);
+      setAttendance(cleanedAttendance);
+      
+      console.log('Mitarbeiter gelöscht:', {
+        employeeName: employee.name,
+        employeeId,
+        removedAttendanceEntries: currentAttendance.length - cleanedAttendance.length
+      });
+    }
   };
 
   const handlePreviousWeek = () => {
@@ -299,22 +323,31 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
                 {employees.map((employee) => (
                   <tr key={employee.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="flex-shrink-0 h-8 w-8">
-                          <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
-                            <span className="text-sm font-medium text-blue-700">
-                              {employee.name.split(' ').map(n => n[0]).join('')}
-                            </span>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center">
+                          <div className="flex-shrink-0 h-8 w-8">
+                            <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
+                              <span className="text-sm font-medium text-blue-700">
+                                {employee.name.split(' ').map(n => n[0]).join('')}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="ml-3">
+                            <div className="text-sm font-medium text-gray-900">
+                              {employee.name}
+                            </div>
                           </div>
                         </div>
-                        <div className="ml-3">
-                          <div className="text-sm font-medium text-gray-900">
-                            {employee.name}
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            {employee.department}
-                          </div>
-                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteEmployee(employee.id);
+                          }}
+                          className="p-1 hover:bg-red-100 rounded-full text-red-600 transition-colors"
+                          title="Mitarbeiter löschen"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </div>
                     </td>
                     {currentWeek.map((date) => {
@@ -338,6 +371,47 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
                     })}
                   </tr>
                 ))}
+                
+                {/* Neue Mitarbeiter-Zeile */}
+                <tr className="bg-gray-50 hover:bg-gray-100">
+                  <td className="px-4 py-4 whitespace-nowrap">
+                    <div className="flex items-start space-x-4">
+                      <div className="flex-shrink-0 h-8 w-8">
+                        <div className="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center">
+                          <Plus className="w-4 h-4 text-green-600" />
+                        </div>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                            Name
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="Vollständiger Name..."
+                            value={newEmployeeName}
+                            onChange={(e) => setNewEmployeeName(e.target.value)}
+                            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            onKeyPress={(e) => e.key === 'Enter' && handleAddEmployee()}
+                          />
+                        </div>
+                      </div>
+                      <div className="flex-shrink-0 flex items-center mt-6">
+                        <button
+                          onClick={handleAddEmployee}
+                          disabled={!newEmployeeName.trim()}
+                          className="px-4 py-1.5 text-sm font-medium bg-green-700 text-white rounded-md hover:bg-green-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+                        >
+                          Hinzufügen
+                        </button>
+                      </div>
+                    </div>
+                  </td>
+                  {currentWeek.map((date) => (
+                    <td key={date.toISOString()} className="px-2 py-4 text-center">
+                    </td>
+                  ))}
+                </tr>
               </tbody>
             </table>
           </div>

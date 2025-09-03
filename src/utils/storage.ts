@@ -128,6 +128,12 @@ export const storage = {
     notifyDataChange();
   },
 
+  addEmployee: (employee: Employee): void => {
+    const employees = storage.getEmployees();
+    employees.push(employee);
+    storage.setEmployees(employees);
+  },
+
   // Anwesenheit
   getAttendance: (): AttendanceEntry[] => {
     const stored = storage.safeLocalStorage.getItem(STORAGE_KEYS.ATTENDANCE);
