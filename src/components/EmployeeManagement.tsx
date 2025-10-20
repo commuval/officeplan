@@ -17,37 +17,45 @@ const EmployeeManagement: React.FC = () => {
     loadData();
   }, []);
 
-  const loadData = () => {
-    setEmployees(storage.getEmployees());
-    setDepartments(storage.getDepartments());
+  const loadData = async () => {
+    try {
+      const [employeesData, departmentsData] = await Promise.all([
+        storage.getEmployees(),
+        storage.getDepartments()
+      ]);
+      setEmployees(employeesData);
+      setDepartments(departmentsData);
+    } catch (error) {
+      console.error('Fehler beim Laden der Daten:', error);
+      // Fallback zu leeren Arrays bei Fehlern
+      setEmployees([]);
+      setDepartments([]);
+    }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (editingEmployee) {
-      // Mitarbeiter bearbeiten
-      const updatedEmployees = employees.map(emp =>
-        emp.id === editingEmployee.id
-          ? { ...emp, ...formData }
-          : emp
-      );
-      storage.setEmployees(updatedEmployees);
-      setEmployees(updatedEmployees);
-      setEditingEmployee(null);
-    } else {
-      // Neuen Mitarbeiter hinzufügen
-      const newEmployee: Employee = {
-        id: Date.now().toString(),
-        ...formData,
-      };
-      const updatedEmployees = [...employees, newEmployee];
-      storage.setEmployees(updatedEmployees);
-      setEmployees(updatedEmployees);
-    }
+    try {
+      if (editingEmployee) {
+        // Mitarbeiter bearbeiten
+        const updatedEmployee = await storage.updateEmployee(editingEmployee.id, formData);
+        setEmployees(employees.map(emp => 
+          emp.id === editingEmployee.id ? updatedEmployee : emp
+        ));
+        setEditingEmployee(null);
+      } else {
+        // Neuen Mitarbeiter hinzufügen
+        const newEmployee = await storage.addEmployee(formData);
+        setEmployees([...employees, newEmployee]);
+      }
 
-    setFormData({ name: '', department: '' });
-    setShowAddModal(false);
+      setFormData({ name: '', department: '' });
+      setShowAddModal(false);
+    } catch (error) {
+      console.error('Fehler beim Speichern des Mitarbeiters:', error);
+      alert('Fehler beim Speichern des Mitarbeiters. Bitte versuchen Sie es erneut.');
+    }
   };
 
   const handleEdit = (employee: Employee) => {
@@ -59,22 +67,16 @@ const EmployeeManagement: React.FC = () => {
     setShowAddModal(true);
   };
 
-  const handleDelete = (employeeId: string) => {
+  const handleDelete = async (employeeId: string) => {
     if (window.confirm('Sind Sie sicher, dass Sie diesen Mitarbeiter löschen möchten?')) {
-      // Mitarbeiter aus der Liste entfernen
-      const updatedEmployees = employees.filter(emp => emp.id !== employeeId);
-      storage.setEmployees(updatedEmployees);
-      setEmployees(updatedEmployees);
-      
-      // Anwesenheitsdaten des gelöschten Mitarbeiters entfernen
-      const currentAttendance = storage.getAttendance();
-      const cleanedAttendance = currentAttendance.filter(entry => entry.employeeId !== employeeId);
-      storage.setAttendance(cleanedAttendance);
-      
-      console.log('Mitarbeiter gelöscht:', {
-        employeeId,
-        removedAttendanceEntries: currentAttendance.length - cleanedAttendance.length
-      });
+      try {
+        await storage.deleteEmployee(employeeId);
+        setEmployees(employees.filter(emp => emp.id !== employeeId));
+        console.log('Mitarbeiter erfolgreich gelöscht:', employeeId);
+      } catch (error) {
+        console.error('Fehler beim Löschen des Mitarbeiters:', error);
+        alert('Fehler beim Löschen des Mitarbeiters. Bitte versuchen Sie es erneut.');
+      }
     }
   };
 
@@ -106,21 +108,6 @@ const EmployeeManagement: React.FC = () => {
             Mitarbeiter hinzufügen
           </button>
           
-          {employees.length > 0 && (
-            <button
-              onClick={() => {
-                if (window.confirm('Sind Sie sicher, dass Sie ALLE Mitarbeiter löschen möchten? Dies löscht auch alle Anwesenheitsdaten!')) {
-                  storage.setEmployees([]);
-                  storage.setAttendance([]);
-                  setEmployees([]);
-                }
-              }}
-              className="btn-secondary flex items-center text-red-600 hover:text-red-700"
-            >
-              <Trash2 className="w-4 h-4 mr-2" />
-              Alle löschen
-            </button>
-          )}
         </div>
       </div>
 

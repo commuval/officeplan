@@ -17,11 +17,7 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
   const [newEmployeeName, setNewEmployeeName] = useState('');
 
   useEffect(() => {
-    console.log('AttendanceCalendar - Initialisierung:', {
-      localStorageAvailable: typeof window !== 'undefined' && !!window.localStorage,
-      employeesCount: storage.getEmployees().length,
-      attendanceCount: storage.getAttendance().length
-    });
+    console.log('AttendanceCalendar - Initialisierung');
     
     loadData();
     generateWeekDays();
@@ -41,25 +37,43 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
     return unsubscribe;
   }, []);
 
-  const loadData = () => {
-    // Verwaiste Anwesenheitsdaten bereinigen
-    storage.cleanOrphanedAttendanceData();
-    
-    let allEmployees = storage.getEmployees();
-    
-    // Wenn es Mitarbeiter gibt, den ersten lokal hinzugefügten immer ganz oben anzeigen
-    if (allEmployees.length > 0) {
-      // Der erste Mitarbeiter (niedrigste ID) wird immer ganz oben angezeigt
-      // Neue Mitarbeiter kommen darunter
-      allEmployees.sort((a, b) => {
-        const idA = parseInt(a.id);
-        const idB = parseInt(b.id);
-        return idA - idB; // Aufsteigend sortieren (älteste zuerst)
-      });
+  const loadData = async () => {
+    try {
+      // Verwaiste Anwesenheitsdaten bereinigen
+      await storage.cleanOrphanedAttendanceData();
+      
+      const [allEmployees, allAttendance] = await Promise.all([
+        storage.getEmployees(),
+        storage.getAttendance()
+      ]);
+      
+      // Sortierung: Lokal hinzugefügte Mitarbeiter immer oben
+      if (allEmployees.length > 0) {
+        const localEmployeeIds = JSON.parse(localStorage.getItem('local_employees') || '[]');
+        
+        allEmployees.sort((a, b) => {
+          const aIsLocal = localEmployeeIds.includes(a.id);
+          const bIsLocal = localEmployeeIds.includes(b.id);
+          
+          // Lokale Mitarbeiter kommen zuerst
+          if (aIsLocal && !bIsLocal) return -1;
+          if (!aIsLocal && bIsLocal) return 1;
+          
+          // Innerhalb der Gruppen nach ID sortieren
+          const idA = parseInt(a.id);
+          const idB = parseInt(b.id);
+          return idA - idB;
+        });
+      }
+      
+      setEmployees(allEmployees);
+      setAttendance(allAttendance);
+    } catch (error) {
+      console.error('Fehler beim Laden der Daten:', error);
+      // Fallback zu leeren Arrays bei Fehlern
+      setEmployees([]);
+      setAttendance([]);
     }
-    
-    setEmployees(allEmployees);
-    setAttendance(storage.getAttendance());
   };
 
   const generateWeekDays = () => {
@@ -131,7 +145,7 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
     ).length;
   };
 
-  const handleCellClick = (employeeId: string, date: Date) => {
+  const handleCellClick = async (employeeId: string, date: Date) => {
     const existingEntry = getAttendanceForEmployeeAndDate(employeeId, date);
     const dogCount = getDogCountForDate(date);
     const dateStr = format(date, 'yyyy-MM-dd');
@@ -141,99 +155,121 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
       date: dateStr,
       existingStatus: existingEntry?.status,
       dogCount,
-      allEntriesForDate: attendance.filter(entry => entry.date === dateStr),
-      localStorageAvailable: typeof window !== 'undefined' && !!window.localStorage
+      allEntriesForDate: attendance.filter(entry => entry.date === dateStr)
     });
     
-    if (existingEntry) {
-      // Status durchwechseln: anwesend -> abwesend -> mit hund -> anwesend -> abwesend -> mit hund...
-      let newStatus: AttendanceStatus;
-      
-      if (existingEntry.status === 'present') {
-        newStatus = 'absent';
-      } else if (existingEntry.status === 'absent') {
-        // Prüfe ob bereits 2 Hunde für diesen Tag vorhanden sind
-        if (dogCount >= 2) {
-          newStatus = 'present'; // Überspringe "mit Hund" wenn bereits 2 Hunde da sind
+    try {
+      if (existingEntry) {
+        // Status durchwechseln: anwesend -> abwesend -> mit hund -> hinzufügen (zurück zum Anfang)
+        let newStatus: AttendanceStatus | null = null;
+        
+        if (existingEntry.status === 'present') {
+          newStatus = 'absent';
+        } else if (existingEntry.status === 'absent') {
+          // Prüfe ob bereits 2 Hunde für diesen Tag vorhanden sind
+          if (dogCount >= 2) {
+            newStatus = null; // Überspringe "mit Hund" und gehe direkt zu "hinzufügen"
+          } else {
+            newStatus = 'present_with_dog';
+          }
+        } else if (existingEntry.status === 'present_with_dog') {
+          newStatus = null; // Zurück zu "hinzufügen"
         } else {
-          newStatus = 'present_with_dog';
+          newStatus = 'present';
         }
-      } else if (existingEntry.status === 'present_with_dog') {
-        newStatus = 'present';
+        
+        if (newStatus === null) {
+          // Eintrag löschen (zurück zu "hinzufügen")
+          await storage.deleteAttendanceEntry(employeeId, dateStr);
+        } else {
+          const updatedEntry: AttendanceEntry = {
+            ...existingEntry,
+            status: newStatus,
+          };
+          await storage.addAttendanceEntry(updatedEntry);
+        }
       } else {
-        newStatus = 'present';
+        // Neuen Eintrag erstellen - immer mit "Anwesend" beginnen
+        const newStatus: AttendanceStatus = 'present';
+        
+        const newEntry: AttendanceEntry = {
+          id: Date.now().toString(),
+          employeeId: employeeId,
+          date: dateStr,
+          status: newStatus,
+        };
+        
+        await storage.addAttendanceEntry(newEntry);
       }
       
-      const updatedEntry: AttendanceEntry = {
-        ...existingEntry,
-        status: newStatus,
-      };
+      // Daten neu laden um sicherzustellen, dass alles synchron ist
+      const updatedAttendance = await storage.getAttendance();
+      setAttendance(updatedAttendance);
       
-      storage.addAttendanceEntry(updatedEntry);
-    } else {
-      // Neuen Eintrag erstellen - immer mit "Anwesend" beginnen
-      const newStatus: AttendanceStatus = 'present';
-      
-      const newEntry: AttendanceEntry = {
-        id: Date.now().toString(),
-        employeeId: employeeId,
+      console.log('Status aktualisiert:', {
+        employeeId,
         date: dateStr,
-        status: newStatus,
-      };
-      
-      storage.addAttendanceEntry(newEntry);
+        newStatus: existingEntry ? 'updated' : 'created',
+        totalAttendanceEntries: updatedAttendance.length,
+        entriesForDate: updatedAttendance.filter(entry => entry.date === dateStr).length
+      });
+    } catch (error) {
+      console.error('Fehler beim Aktualisieren der Anwesenheit:', error);
+      alert('Fehler beim Speichern der Anwesenheit. Bitte versuchen Sie es erneut.');
     }
-    
-    // Daten neu laden um sicherzustellen, dass alles synchron ist
-    const updatedAttendance = storage.getAttendance();
-    setAttendance(updatedAttendance);
-    
-    console.log('Status aktualisiert:', {
-      employeeId,
-      date: dateStr,
-      newStatus: existingEntry ? 'updated' : 'created',
-      totalAttendanceEntries: updatedAttendance.length,
-      entriesForDate: updatedAttendance.filter(entry => entry.date === dateStr).length
-    });
   };
 
-  const handleAddEmployee = () => {
+  const handleAddEmployee = async () => {
     if (!newEmployeeName.trim()) return;
 
-    const newEmployee: Employee = {
-      id: Date.now().toString(),
-      name: newEmployeeName.trim(),
-      department: 'Unbekannt', // Standardwert
-    };
-
-    storage.addEmployee(newEmployee);
-    setNewEmployeeName('');
-    loadData(); // Daten neu laden, um den neuen Mitarbeiter zu sehen
+    try {
+      const newEmployee = await storage.addEmployee({
+        name: newEmployeeName.trim(),
+        department: 'Unbekannt', // Standardwert
+      });
+      
+      // Lokal hinzugefügte Mitarbeiter in localStorage speichern
+      const localEmployees = JSON.parse(localStorage.getItem('local_employees') || '[]');
+      localEmployees.push(newEmployee.id);
+      localStorage.setItem('local_employees', JSON.stringify(localEmployees));
+      
+      setNewEmployeeName('');
+      await loadData(); // Daten neu laden, um den neuen Mitarbeiter zu sehen
+    } catch (error) {
+      console.error('Fehler beim Hinzufügen des Mitarbeiters:', error);
+      alert('Fehler beim Hinzufügen des Mitarbeiters. Bitte versuchen Sie es erneut.');
+    }
   };
 
-  const handleDeleteEmployee = (employeeId: string) => {
+  const handleDeleteEmployee = async (employeeId: string) => {
     const employee = employees.find(emp => emp.id === employeeId);
     if (!employee) return;
     
     const confirmMessage = `Sind Sie sicher, dass Sie "${employee.name}" löschen möchten?\n\nDies löscht auch alle Anwesenheitsdaten dieser Person.`;
     
     if (window.confirm(confirmMessage)) {
-      // Mitarbeiter aus der Liste entfernen
-      const updatedEmployees = employees.filter(emp => emp.id !== employeeId);
-      storage.setEmployees(updatedEmployees);
-      setEmployees(updatedEmployees);
-      
-      // Anwesenheitsdaten des gelöschten Mitarbeiters entfernen
-      const currentAttendance = storage.getAttendance();
-      const cleanedAttendance = currentAttendance.filter(entry => entry.employeeId !== employeeId);
-      storage.setAttendance(cleanedAttendance);
-      setAttendance(cleanedAttendance);
-      
-      console.log('Mitarbeiter gelöscht:', {
-        employeeName: employee.name,
-        employeeId,
-        removedAttendanceEntries: currentAttendance.length - cleanedAttendance.length
-      });
+      try {
+        await storage.deleteEmployee(employeeId);
+        setEmployees(employees.filter(emp => emp.id !== employeeId));
+        
+        // Lokalen Mitarbeiter aus localStorage entfernen
+        const localEmployees = JSON.parse(localStorage.getItem('local_employees') || '[]');
+        const updatedLocalEmployees = localEmployees.filter((id: string) => id !== employeeId);
+        localStorage.setItem('local_employees', JSON.stringify(updatedLocalEmployees));
+        
+        // Anwesenheitsdaten lokal aktualisieren
+        const cleanedAttendance = attendance.filter(entry => entry.employeeId !== employeeId);
+        setAttendance(cleanedAttendance);
+        
+        console.log('Mitarbeiter erfolgreich gelöscht:', {
+          employeeName: employee.name,
+          employeeId,
+          removedAttendanceEntries: attendance.length - cleanedAttendance.length
+        });
+      } catch (error) {
+        console.error('Fehler beim Löschen des Mitarbeiters:', error);
+        alert('Fehler beim Löschen des Mitarbeiters. Bitte versuchen Sie es erneut.');
+      }
     }
   };
 
@@ -279,7 +315,7 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
               <div className="flex items-center justify-center mt-2 space-x-4 text-sm text-gray-600">
                 <div className="flex items-center">
                   <Dog className="w-4 h-4 mr-1" />
-                  <span>Empfohlen: Max 2 Hunde pro Tag</span>
+                  <span>Max 2 Hunde pro Tag</span>
                 </div>
               </div>
             )}

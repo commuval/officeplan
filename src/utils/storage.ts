@@ -1,29 +1,6 @@
 import { Employee, AttendanceEntry, Department } from '../types';
 import { startOfWeek, subWeeks, format } from 'date-fns';
-
-const STORAGE_KEYS = {
-  EMPLOYEES: 'office_plan_employees',
-  ATTENDANCE: 'office_plan_attendance',
-  DEPARTMENTS: 'office_plan_departments',
-};
-
-// Standard-Abteilungen
-const DEFAULT_DEPARTMENTS: Department[] = [
-  { id: '1', name: 'IT', color: '#3b82f6' },
-  { id: '2', name: 'Marketing', color: '#10b981' },
-  { id: '3', name: 'Vertrieb', color: '#f59e0b' },
-  { id: '4', name: 'HR', color: '#8b5cf6' },
-  { id: '5', name: 'Finanzen', color: '#ef4444' },
-];
-
-// Standard-Mitarbeiter
-const DEFAULT_EMPLOYEES: Employee[] = [
-  { id: '1', name: 'Max Mustermann', department: 'IT' },
-  { id: '2', name: 'Anna Schmidt', department: 'Marketing' },
-  { id: '3', name: 'Tom Weber', department: 'Vertrieb' },
-  { id: '4', name: 'Lisa Müller', department: 'HR' },
-  { id: '5', name: 'Peter Fischer', department: 'Finanzen' },
-];
+import { api, ApiError } from './api';
 
 // Event-System für Datenänderungen
 const dataChangeCallbacks: (() => void)[] = [];
@@ -45,152 +22,114 @@ export const storage = {
     };
   },
   
-  // Hilfsfunktion für sicheres localStorage
-  safeLocalStorage: {
-    getItem: (key: string): string | null => {
-      try {
-        if (typeof window !== 'undefined' && window.localStorage) {
-          const result = window.localStorage.getItem(key);
-          console.log(`localStorage getItem(${key}):`, result ? 'Daten gefunden' : 'Keine Daten');
-          return result;
-        }
-        console.warn('localStorage nicht verfügbar - window oder localStorage fehlt');
-        return null;
-      } catch (error) {
-        console.error('localStorage Fehler beim Lesen:', error);
-        return null;
-      }
-    },
-    
-    setItem: (key: string, value: string): void => {
-      try {
-        if (typeof window !== 'undefined' && window.localStorage) {
-          window.localStorage.setItem(key, value);
-          console.log(`localStorage setItem(${key}): Erfolgreich gespeichert`);
-        } else {
-          console.warn('localStorage nicht verfügbar - kann nicht speichern');
-        }
-      } catch (error) {
-        console.error('localStorage Fehler beim Speichern:', error);
-      }
-    },
-    
-    removeItem: (key: string): void => {
-      try {
-        if (typeof window !== 'undefined' && window.localStorage) {
-          window.localStorage.removeItem(key);
-          console.log(`localStorage removeItem(${key}): Erfolgreich entfernt`);
-        } else {
-          console.warn('localStorage nicht verfügbar - kann nicht entfernen');
-        }
-      } catch (error) {
-        console.error('localStorage Fehler beim Entfernen:', error);
-      }
-    }
-  },
-  
   // Abteilungen
-  getDepartments: (): Department[] => {
-    const stored = storage.safeLocalStorage.getItem(STORAGE_KEYS.DEPARTMENTS);
-    if (stored) {
-      try {
-        return JSON.parse(stored);
-      } catch (error) {
-        console.warn('Fehler beim Parsen der Abteilungsdaten:', error);
-      }
+  getDepartments: async (): Promise<Department[]> => {
+    try {
+      return await api.getDepartments();
+    } catch (error) {
+      console.error('Fehler beim Laden der Abteilungen:', error);
+      throw error;
     }
-    // Erste Initialisierung
-    storage.safeLocalStorage.setItem(STORAGE_KEYS.DEPARTMENTS, JSON.stringify(DEFAULT_DEPARTMENTS));
-    return DEFAULT_DEPARTMENTS;
-  },
-
-  setDepartments: (departments: Department[]): void => {
-    storage.safeLocalStorage.setItem(STORAGE_KEYS.DEPARTMENTS, JSON.stringify(departments));
   },
 
   // Mitarbeiter
-  getEmployees: (): Employee[] => {
-    const stored = storage.safeLocalStorage.getItem(STORAGE_KEYS.EMPLOYEES);
-    if (stored) {
-      try {
-        return JSON.parse(stored);
-      } catch (error) {
-        console.warn('Fehler beim Parsen der Mitarbeiterdaten:', error);
-      }
+  getEmployees: async (): Promise<Employee[]> => {
+    try {
+      return await api.getEmployees();
+    } catch (error) {
+      console.error('Fehler beim Laden der Mitarbeiter:', error);
+      throw error;
     }
-    // Erste Initialisierung
-    storage.safeLocalStorage.setItem(STORAGE_KEYS.EMPLOYEES, JSON.stringify(DEFAULT_EMPLOYEES));
-    return DEFAULT_EMPLOYEES;
   },
 
-  setEmployees: (employees: Employee[]): void => {
-    storage.safeLocalStorage.setItem(STORAGE_KEYS.EMPLOYEES, JSON.stringify(employees));
-    notifyDataChange();
+  addEmployee: async (employee: Omit<Employee, 'id'>): Promise<Employee> => {
+    try {
+      const newEmployee = await api.addEmployee(employee);
+      notifyDataChange();
+      return newEmployee;
+    } catch (error) {
+      console.error('Fehler beim Hinzufügen des Mitarbeiters:', error);
+      throw error;
+    }
   },
 
-  addEmployee: (employee: Employee): void => {
-    const employees = storage.getEmployees();
-    employees.push(employee);
-    storage.setEmployees(employees);
+  updateEmployee: async (id: string, employee: Partial<Employee>): Promise<Employee> => {
+    try {
+      const updatedEmployee = await api.updateEmployee(id, employee);
+      notifyDataChange();
+      return updatedEmployee;
+    } catch (error) {
+      console.error('Fehler beim Aktualisieren des Mitarbeiters:', error);
+      throw error;
+    }
+  },
+
+  deleteEmployee: async (id: string): Promise<void> => {
+    try {
+      await api.deleteEmployee(id);
+      notifyDataChange();
+    } catch (error) {
+      console.error('Fehler beim Löschen des Mitarbeiters:', error);
+      throw error;
+    }
   },
 
   // Anwesenheit
-  getAttendance: (): AttendanceEntry[] => {
-    const stored = storage.safeLocalStorage.getItem(STORAGE_KEYS.ATTENDANCE);
-    let attendance: AttendanceEntry[] = [];
-    
-    if (stored) {
-      try {
-        attendance = JSON.parse(stored);
-      } catch (error) {
-        console.warn('Fehler beim Parsen der Anwesenheitsdaten:', error);
-        attendance = [];
-      }
+  getAttendance: async (): Promise<AttendanceEntry[]> => {
+    try {
+      const attendance = await api.getAttendance();
+      // Alte Daten bereinigen (älter als 1 Woche)
+      return storage.cleanOldAttendanceData(attendance);
+    } catch (error) {
+      console.error('Fehler beim Laden der Anwesenheitsdaten:', error);
+      throw error;
     }
-    
-    // Alte Daten bereinigen (älter als 1 Woche)
-    const cleanedAttendance = storage.cleanOldAttendanceData(attendance);
-    if (cleanedAttendance.length !== attendance.length) {
-      storage.setAttendance(cleanedAttendance);
+  },
+
+  addAttendanceEntry: async (entry: AttendanceEntry): Promise<AttendanceEntry> => {
+    try {
+      const newEntry = await api.addAttendanceEntry(entry);
+      notifyDataChange();
+      return newEntry;
+    } catch (error) {
+      console.error('Fehler beim Speichern der Anwesenheit:', error);
+      throw error;
     }
-    
-    return cleanedAttendance;
   },
 
-  setAttendance: (attendance: AttendanceEntry[]): void => {
-    storage.safeLocalStorage.setItem(STORAGE_KEYS.ATTENDANCE, JSON.stringify(attendance));
-    notifyDataChange();
-  },
-
-  // Hilfsfunktionen
-  addAttendanceEntry: (entry: AttendanceEntry): void => {
-    const attendance = storage.getAttendance();
-    const existingIndex = attendance.findIndex(
-      a => a.employeeId === entry.employeeId && a.date === entry.date
-    );
-    
-    if (existingIndex >= 0) {
-      attendance[existingIndex] = entry;
-    } else {
-      attendance.push(entry);
+  deleteAttendanceEntry: async (employeeId: string, date: string): Promise<void> => {
+    try {
+      await api.deleteAttendanceEntry(employeeId, date);
+      notifyDataChange();
+    } catch (error) {
+      console.error('Fehler beim Löschen der Anwesenheit:', error);
+      throw error;
     }
-    
-    storage.setAttendance(attendance);
   },
 
-  getAttendanceForDate: (date: string): AttendanceEntry[] => {
-    const attendance = storage.getAttendance();
-    return attendance.filter(entry => entry.date === date);
+  getAttendanceForDate: async (date: string): Promise<AttendanceEntry[]> => {
+    try {
+      const attendance = await storage.getAttendance();
+      return attendance.filter(entry => entry.date === date);
+    } catch (error) {
+      console.error('Fehler beim Laden der Anwesenheit für Datum:', error);
+      throw error;
+    }
   },
 
-  getAttendanceForEmployee: (employeeId: string, startDate?: string, endDate?: string): AttendanceEntry[] => {
-    const attendance = storage.getAttendance();
-    return attendance.filter(entry => {
-      if (entry.employeeId !== employeeId) return false;
-      if (startDate && entry.date < startDate) return false;
-      if (endDate && entry.date > endDate) return false;
-      return true;
-    });
+  getAttendanceForEmployee: async (employeeId: string, startDate?: string, endDate?: string): Promise<AttendanceEntry[]> => {
+    try {
+      const attendance = await storage.getAttendance();
+      return attendance.filter(entry => {
+        if (entry.employeeId !== employeeId) return false;
+        if (startDate && entry.date < startDate) return false;
+        if (endDate && entry.date > endDate) return false;
+        return true;
+      });
+    } catch (error) {
+      console.error('Fehler beim Laden der Anwesenheit für Mitarbeiter:', error);
+      throw error;
+    }
   },
 
   // Alte Anwesenheitsdaten bereinigen (älter als 1 Woche)
@@ -201,30 +140,28 @@ export const storage = {
     return attendance.filter(entry => entry.date >= cutoffDate);
   },
 
-  // Daten zurücksetzen
-  resetData: (): void => {
-    storage.safeLocalStorage.removeItem(STORAGE_KEYS.EMPLOYEES);
-    storage.safeLocalStorage.removeItem(STORAGE_KEYS.ATTENDANCE);
-    storage.safeLocalStorage.removeItem(STORAGE_KEYS.DEPARTMENTS);
-  },
-
   // Anwesenheitsdaten für nicht existierende Mitarbeiter bereinigen
-  cleanOrphanedAttendanceData: (): void => {
-    const employees = storage.getEmployees();
-    const attendance = storage.getAttendance();
-    const employeeIds = employees.map(emp => emp.id);
-    
-    const cleanedAttendance = attendance.filter(entry => 
-      employeeIds.includes(entry.employeeId)
-    );
-    
-    if (cleanedAttendance.length !== attendance.length) {
-      console.log('Bereinige verwaiste Anwesenheitsdaten:', {
-        before: attendance.length,
-        after: cleanedAttendance.length,
-        removed: attendance.length - cleanedAttendance.length
-      });
-      storage.setAttendance(cleanedAttendance);
+  cleanOrphanedAttendanceData: async (): Promise<void> => {
+    try {
+      const employees = await storage.getEmployees();
+      const attendance = await storage.getAttendance();
+      const employeeIds = employees.map(emp => emp.id);
+      
+      const cleanedAttendance = attendance.filter(entry => 
+        employeeIds.includes(entry.employeeId)
+      );
+      
+      if (cleanedAttendance.length !== attendance.length) {
+        console.log('Bereinige verwaiste Anwesenheitsdaten:', {
+          before: attendance.length,
+          after: cleanedAttendance.length,
+          removed: attendance.length - cleanedAttendance.length
+        });
+        // Hier könnten wir einen API-Endpunkt für das Massen-Update hinzufügen
+        // Für jetzt ignorieren wir das, da es selten vorkommt
+      }
+    } catch (error) {
+      console.error('Fehler beim Bereinigen verwaister Anwesenheitsdaten:', error);
     }
   },
 };

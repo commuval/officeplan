@@ -1,0 +1,61 @@
+{
+  "employees": [
+    {
+      "id": "5",
+      "name": "Peter Fischer",
+      "department": "Finanzen"
+    },
+    {
+      "id": "1760953871765",
+      "name": "Moritz Steinbach",
+      "department": "Unbekannt"
+    }
+  ],
+  "departments": [
+    {
+      "id": "1",
+      "name": "IT",
+      "color": "#3b82f6"
+    },
+    {
+      "id": "2",
+      "name": "Marketing",
+      "color": "#10b981"
+    },
+    {
+      "id": "3",
+      "name": "Vertrieb",
+      "color": "#f59e0b"
+    },
+    {
+      "id": "4",
+      "name": "HR",
+      "color": "#8b5cf6"
+    },
+    {
+      "id": "5",
+      "name": "Finanzen",
+      "color": "#ef4444"
+    }
+  ],
+  "attendance": [
+    {
+      "id": "1760953896372",
+      "employeeId": "1760953871765",
+      "date": "2025-10-20",
+      "status": "present_with_dog"
+    },
+    {
+      "id": "1760953957787",
+      "employeeId": "5",
+      "date": "2025-10-28",
+      "status": "present"
+    },
+    {
+      "id": "1760953958532",
+      "employeeId": "5",
+      "date": "2025-10-29",
+      "status": "absent"
+    }
+  ]
+}

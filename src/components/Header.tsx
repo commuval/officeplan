@@ -15,8 +15,12 @@ const Header: React.FC<HeaderProps> = ({ currentView, onViewChange }) => {
           <div className="flex items-center">
             <div className="flex-shrink-0">
               <div className="flex items-center">
-                <div className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center">
-                  <Calendar className="w-5 h-5 text-white" />
+                <div className="w-16 h-16 flex items-center justify-center">
+                  <img 
+                    src="/Logo HR factory.png" 
+                    alt="HR Factory Logo" 
+                    className="w-16 h-16 object-contain"
+                  />
                 </div>
                 <h1 className="ml-3 text-xl font-semibold text-gray-900">
                   Büroplan
@@ -40,12 +44,6 @@ const Header: React.FC<HeaderProps> = ({ currentView, onViewChange }) => {
             </button>
           </nav>
 
-          {/* Benutzerinfo */}
-          <div className="flex items-center">
-            <div className="text-sm text-gray-500">
-              <span className="font-medium">Anwesenheitsverwaltung</span>
-            </div>
-          </div>
         </div>
       </div>
     </header>

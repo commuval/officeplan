@@ -16,53 +16,29 @@ const Settings: React.FC = () => {
     loadData();
   }, []);
 
-  const loadData = () => {
-    setDepartments(storage.getDepartments());
+  const loadData = async () => {
+    try {
+      const departmentsData = await storage.getDepartments();
+      setDepartments(departmentsData);
+    } catch (error) {
+      console.error('Fehler beim Laden der Abteilungen:', error);
+      setDepartments([]);
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (editingDepartment) {
-      // Abteilung bearbeiten
-      const updatedDepartments = departments.map(dept =>
-        dept.id === editingDepartment.id
-          ? { ...dept, ...formData }
-          : dept
-      );
-      storage.setDepartments(updatedDepartments);
-      setDepartments(updatedDepartments);
-      setEditingDepartment(null);
-    } else {
-      // Neue Abteilung hinzufügen
-      const newDepartment: Department = {
-        id: Date.now().toString(),
-        ...formData,
-      };
-      const updatedDepartments = [...departments, newDepartment];
-      storage.setDepartments(updatedDepartments);
-      setDepartments(updatedDepartments);
-    }
-
+    alert('Abteilungsverwaltung ist derzeit nicht verfügbar. Verwenden Sie die Standard-Abteilungen.');
     setFormData({ name: '', color: '#3b82f6' });
     setShowAddModal(false);
   };
 
   const handleEdit = (department: Department) => {
-    setEditingDepartment(department);
-    setFormData({
-      name: department.name,
-      color: department.color,
-    });
-    setShowAddModal(true);
+    alert('Abteilungsverwaltung ist derzeit nicht verfügbar. Verwenden Sie die Standard-Abteilungen.');
   };
 
   const handleDelete = (departmentId: string) => {
-    if (window.confirm('Sind Sie sicher, dass Sie diese Abteilung löschen möchten?')) {
-      const updatedDepartments = departments.filter(dept => dept.id !== departmentId);
-      storage.setDepartments(updatedDepartments);
-      setDepartments(updatedDepartments);
-    }
+    alert('Abteilungsverwaltung ist derzeit nicht verfügbar. Verwenden Sie die Standard-Abteilungen.');
   };
 
   const handleCancel = () => {
