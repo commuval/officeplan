@@ -1,11 +1,6 @@
 {
   "employees": [
     {
-      "id": "5",
-      "name": "Peter Fischer",
-      "department": "Finanzen"
-    },
-    {
       "id": "1760953871765",
       "name": "Moritz Steinbach",
       "department": "Unbekannt"
@@ -45,35 +40,13 @@
       "date": "2025-10-20",
       "status": "present_with_dog"
     },
-    {
-      "id": "1760953957787",
-      "employeeId": "5",
-      "date": "2025-10-28",
-      "status": "present"
-    },
-    {
-      "id": "1760953958532",
-      "employeeId": "5",
-      "date": "2025-10-29",
-      "status": "absent"
-    },
-    {
-      "id": "1760954776267",
-      "employeeId": "5",
-      "date": "2025-10-20",
-      "status": "absent"
-    },
+    
     {
       "id": "1760954792348",
       "employeeId": "1760953871765",
       "date": "2025-10-21",
       "status": "absent"
     },
-    {
-      "id": "1760954848096",
-      "employeeId": "5",
-      "date": "2025-10-22",
-      "status": "present_with_dog"
-    }
+    
   ]
 }

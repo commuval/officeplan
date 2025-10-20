@@ -154,8 +154,12 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
 
   const handleCellClick = async (employeeId: string, date: Date) => {
     const existingEntry = getAttendanceForEmployeeAndDate(employeeId, date);
+    const isOwnEmployee = JSON.parse(localStorage.getItem('local_employees') || '[]').includes(employeeId);
     if (existingEntry && !canModifyEntry(existingEntry)) {
       return; // Fremde Einträge nicht veränderbar
+    }
+    if (!existingEntry && !isOwnEmployee) {
+      return; // Neue Einträge nur für eigene Mitarbeiter
     }
     const dogCount = getDogCountForDate(date);
     const dateStr = format(date, 'yyyy-MM-dd');

@@ -24,13 +24,7 @@ const DATA_FILE = path.join(__dirname, 'data.json');
 
 // Standard-Daten
 const DEFAULT_DATA = {
-  employees: [
-    { id: '1', name: 'Max Mustermann', department: 'IT' },
-    { id: '2', name: 'Anna Schmidt', department: 'Marketing' },
-    { id: '3', name: 'Tom Weber', department: 'Vertrieb' },
-    { id: '4', name: 'Lisa Müller', department: 'HR' },
-    { id: '5', name: 'Peter Fischer', department: 'Finanzen' },
-  ],
+  employees: [],
   departments: [
     { id: '1', name: 'IT', color: '#3b82f6' },
     { id: '2', name: 'Marketing', color: '#10b981' },
