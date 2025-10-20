@@ -160,34 +160,30 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
     
     try {
       if (existingEntry) {
-        // Status durchwechseln: anwesend -> abwesend -> mit hund -> hinzufügen (zurück zum Anfang)
-        let newStatus: AttendanceStatus | null = null;
+        // Status durchwechseln: anwesend -> abwesend -> mit hund -> anwesend -> abwesend -> mit hund...
+        let newStatus: AttendanceStatus;
         
         if (existingEntry.status === 'present') {
           newStatus = 'absent';
         } else if (existingEntry.status === 'absent') {
           // Prüfe ob bereits 2 Hunde für diesen Tag vorhanden sind
           if (dogCount >= 2) {
-            newStatus = null; // Überspringe "mit Hund" und gehe direkt zu "hinzufügen"
+            newStatus = 'present'; // Überspringe "mit Hund" wenn bereits 2 Hunde da sind
           } else {
             newStatus = 'present_with_dog';
           }
         } else if (existingEntry.status === 'present_with_dog') {
-          newStatus = null; // Zurück zu "hinzufügen"
+          newStatus = 'present';
         } else {
           newStatus = 'present';
         }
         
-        if (newStatus === null) {
-          // Eintrag löschen (zurück zu "hinzufügen")
-          await storage.deleteAttendanceEntry(employeeId, dateStr);
-        } else {
-          const updatedEntry: AttendanceEntry = {
-            ...existingEntry,
-            status: newStatus,
-          };
-          await storage.addAttendanceEntry(updatedEntry);
-        }
+        const updatedEntry: AttendanceEntry = {
+          ...existingEntry,
+          status: newStatus,
+        };
+        
+        await storage.addAttendanceEntry(updatedEntry);
       } else {
         // Neuen Eintrag erstellen - immer mit "Anwesend" beginnen
         const newStatus: AttendanceStatus = 'present';

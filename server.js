@@ -160,8 +160,9 @@ app.delete('/api/attendance/:employeeId/:date', async (req, res) => {
     const data = await readData();
     const { employeeId, date } = req.params;
     
-    data.attendance = data.attendance.filter(entry => 
-      !(entry.employeeId === employeeId && entry.date === date)
+    // Eintrag für diesen Mitarbeiter und Tag finden und entfernen
+    data.attendance = data.attendance.filter(
+      entry => !(entry.employeeId === employeeId && entry.date === date)
     );
     
     await writeData(data);

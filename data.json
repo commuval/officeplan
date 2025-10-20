@@ -56,6 +56,24 @@
       "employeeId": "5",
       "date": "2025-10-29",
       "status": "absent"
+    },
+    {
+      "id": "1760954776267",
+      "employeeId": "5",
+      "date": "2025-10-20",
+      "status": "absent"
+    },
+    {
+      "id": "1760954792348",
+      "employeeId": "1760953871765",
+      "date": "2025-10-21",
+      "status": "absent"
+    },
+    {
+      "id": "1760954848096",
+      "employeeId": "5",
+      "date": "2025-10-22",
+      "status": "present_with_dog"
     }
   ]
 }
