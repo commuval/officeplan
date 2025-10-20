@@ -385,6 +385,9 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
                         }`}>
                           {format(date, 'dd')}
                         </span>
+                        <span className={`mt-1 text-[11px] ${getActiveCountForDate(date) >= 25 ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
+                          {getActiveCountForDate(date)}/25
+                        </span>
                       </div>
                     </th>
                   ))}
