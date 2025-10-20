@@ -1,12 +1,5 @@
 {
-  "employees": [
-    {
-      "id": "1760966154790",
-      "name": "Moritz Steinbach",
-      "department": "Unbekannt",
-      "ownerId": "4a20294e-55ec-412a-b834-155ed8ebfe0e"
-    }
-  ],
+  "employees": [],
   "departments": [
     {
       "id": "1",
@@ -34,20 +27,5 @@
       "color": "#ef4444"
     }
   ],
-  "attendance": [
-    {
-      "id": "1760966156948",
-      "employeeId": "1760966154790",
-      "date": "2025-10-20",
-      "status": "present_with_dog",
-      "ownerId": "4a20294e-55ec-412a-b834-155ed8ebfe0e"
-    },
-    {
-      "id": "1760967392828",
-      "employeeId": "1760966154790",
-      "date": "2025-10-21",
-      "status": "present",
-      "ownerId": "4a20294e-55ec-412a-b834-155ed8ebfe0e"
-    }
-  ]
+  "attendance": []
 }
