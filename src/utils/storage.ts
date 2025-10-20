@@ -1,6 +1,7 @@
 import { Employee, AttendanceEntry, Department } from '../types';
 import { startOfWeek, subWeeks, format } from 'date-fns';
 import { api, ApiError } from './api';
+import { getDeviceId } from './identity';
 
 // Event-System für Datenänderungen
 const dataChangeCallbacks: (() => void)[] = [];
@@ -44,7 +45,8 @@ export const storage = {
 
   addEmployee: async (employee: Omit<Employee, 'id'>): Promise<Employee> => {
     try {
-      const newEmployee = await api.addEmployee(employee);
+      const ownerId = getDeviceId();
+      const newEmployee = await api.addEmployee({ ...employee, ownerId });
       notifyDataChange();
       return newEmployee;
     } catch (error) {
@@ -88,7 +90,8 @@ export const storage = {
 
   addAttendanceEntry: async (entry: AttendanceEntry): Promise<AttendanceEntry> => {
     try {
-      const newEntry = await api.addAttendanceEntry(entry);
+      const ownerId = entry.ownerId ?? getDeviceId();
+      const newEntry = await api.addAttendanceEntry({ ...entry, ownerId });
       notifyDataChange();
       return newEntry;
     } catch (error) {

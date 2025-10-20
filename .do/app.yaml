@@ -1,0 +1,23 @@
+spec:
+  name: bueroplan
+  services:
+    - name: officeplan-server
+      env: node-js
+      instance_count: 1
+      instance_size_slug: basic-xxs
+      git:
+        repo_clone_url: https://github.com/DEIN_GITHUB/DEIN_REPO.git
+        branch: main
+      build_command: npm install && npm run build
+      run_command: node server.js
+      http_port: 8080
+      routes:
+        - path: /
+      envs:
+        - key: NODE_ENV
+          value: production
+      source_dir: officeplan
+  alerts:
+    - rule: DEPLOYMENT_FAILED
+    - rule: DOMAIN_FAILED
+

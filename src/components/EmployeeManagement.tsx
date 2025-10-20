@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, User, Building } from 'lucide-react';
 import { Employee, Department } from '../types';
 import { storage } from '../utils/storage';
+import { getDeviceId } from '../utils/identity';
 
 const EmployeeManagement: React.FC = () => {
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -89,6 +90,11 @@ const EmployeeManagement: React.FC = () => {
   const getDepartmentColor = (departmentName: string) => {
     const department = departments.find(d => d.name === departmentName);
     return department?.color || '#6b7280';
+  };
+
+  const isOwner = (employee: Employee) => {
+    const deviceId = getDeviceId();
+    return !employee.ownerId || employee.ownerId === deviceId;
   };
 
   return (
@@ -193,13 +199,17 @@ const EmployeeManagement: React.FC = () => {
                     <div className="flex items-center justify-end space-x-2">
                       <button
                         onClick={() => handleEdit(employee)}
-                        className="text-primary-600 hover:text-primary-900 p-1 rounded"
+                        className="text-primary-600 hover:text-primary-900 p-1 rounded disabled:opacity-40"
+                        disabled={!isOwner(employee)}
+                        title={isOwner(employee) ? 'Bearbeiten' : 'Nur vom Ersteller bearbeitbar'}
                       >
                         <Edit className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleDelete(employee.id)}
-                        className="text-red-600 hover:text-red-900 p-1 rounded"
+                        className="text-red-600 hover:text-red-900 p-1 rounded disabled:opacity-40"
+                        disabled={!isOwner(employee)}
+                        title={isOwner(employee) ? 'Löschen' : 'Nur vom Ersteller löschbar'}
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>

@@ -3,6 +3,7 @@ export interface Employee {
   name: string;
   department: string;
   avatar?: string;
+  ownerId?: string; // lokale Ownership: nur Ersteller darf bearbeiten/löschen
 }
 
 export interface AttendanceEntry {
@@ -13,6 +14,7 @@ export interface AttendanceEntry {
   startTime?: string;
   endTime?: string;
   notes?: string;
+  ownerId?: string; // lokale Ownership: nur Ersteller darf bearbeiten/löschen
 }
 
 export interface Department {
