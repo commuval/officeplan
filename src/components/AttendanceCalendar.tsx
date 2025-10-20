@@ -88,7 +88,7 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
   };
 
   const getStatusIcon = (status: AttendanceStatus | null) => {
-    if (!status) return <Plus className="w-4 h-4 text-gray-400" />;
+    if (!status) return <X className="w-4 h-4 text-red-600" />; // default: Abwesend
     
     switch (status) {
       case 'present':
@@ -98,12 +98,12 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
       case 'absent':
         return <X className="w-4 h-4 text-red-600" />;
       default:
-        return <Plus className="w-4 h-4 text-gray-400" />;
+        return <X className="w-4 h-4 text-red-600" />;
     }
   };
 
   const getStatusColor = (status: AttendanceStatus | null) => {
-    if (!status) return 'bg-gray-50 text-gray-500 border-gray-200';
+    if (!status) return 'bg-red-100 text-red-800 border-red-200'; // default: Abwesend
     
     switch (status) {
       case 'present':
@@ -113,12 +113,12 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
       case 'absent':
         return 'bg-red-100 text-red-800 border-red-200';
       default:
-        return 'bg-gray-50 text-gray-500 border-gray-200';
+        return 'bg-red-100 text-red-800 border-red-200';
     }
   };
 
   const getStatusText = (status: AttendanceStatus | null) => {
-    if (!status) return 'Hinzufügen';
+    if (!status) return 'Abwesend';
     
     switch (status) {
       case 'present':
@@ -128,7 +128,7 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
       case 'absent':
         return 'Abwesend';
       default:
-        return 'Hinzufügen';
+        return 'Abwesend';
     }
   };
 
@@ -143,6 +143,13 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
     const dateStr = format(date, 'yyyy-MM-dd');
     return attendance.filter(entry => 
       entry.date === dateStr && entry.status === 'present_with_dog'
+    ).length;
+  };
+
+  const getActiveCountForDate = (date: Date) => {
+    const dateStr = format(date, 'yyyy-MM-dd');
+    return attendance.filter(entry => 
+      entry.date === dateStr && (entry.status === 'present' || entry.status === 'present_with_dog')
     ).length;
   };
 
@@ -162,6 +169,7 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
       return; // Neue Einträge nur für eigene Mitarbeiter
     }
     const dogCount = getDogCountForDate(date);
+    const activeCount = getActiveCountForDate(date);
     const dateStr = format(date, 'yyyy-MM-dd');
     
     console.log('DEBUG - Click:', {
@@ -174,24 +182,32 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
     
     try {
       if (existingEntry) {
-        // Status durchwechseln: anwesend -> abwesend -> mit hund -> anwesend -> abwesend -> mit hund...
+        // Gewünschte Reihenfolge: absent -> present -> present_with_dog -> absent
         let newStatus: AttendanceStatus;
-        
-        if (existingEntry.status === 'present') {
-          newStatus = 'absent';
-        } else if (existingEntry.status === 'absent') {
-          // Prüfe ob bereits 2 Hunde für diesen Tag vorhanden sind
+
+        if (existingEntry.status === 'absent') {
+          newStatus = 'present';
+        } else if (existingEntry.status === 'present') {
+          // Nächster Schritt wäre "mit Hund", aber nur wenn Hundelimit nicht erreicht
           if (dogCount >= 2) {
-            newStatus = 'present'; // Überspringe "mit Hund" wenn bereits 2 Hunde da sind
+            newStatus = 'absent';
           } else {
             newStatus = 'present_with_dog';
           }
         } else if (existingEntry.status === 'present_with_dog') {
-          newStatus = 'present';
+          newStatus = 'absent';
         } else {
           newStatus = 'present';
         }
         
+        // Warnung ab der 26. aktiven Person (present/present_with_dog) am Tag
+        const wasActive = existingEntry.status === 'present' || existingEntry.status === 'present_with_dog';
+        const willBeActive = newStatus === 'present' || newStatus === 'present_with_dog';
+        const projectedActive = activeCount + (willBeActive && !wasActive ? 1 : 0) - (!willBeActive && wasActive ? 1 : 0);
+        if (projectedActive > 25 && willBeActive) {
+          alert('Hinweis: Das Büro ist bereits voll (max. 25 Personen). Du kannst dich trotzdem eintragen.');
+        }
+
         const updatedEntry: AttendanceEntry = {
           ...existingEntry,
           status: newStatus,
@@ -202,6 +218,11 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
         // Neuen Eintrag erstellen - immer mit "Anwesend" beginnen
         const newStatus: AttendanceStatus = 'present';
         
+        // Warnung für neuen aktiven Eintrag ab der 26. Person
+        if (activeCount + 1 > 25) {
+          alert('Hinweis: Das Büro ist bereits voll (max. 25 Personen). Du kannst dich trotzdem eintragen.');
+        }
+
         const newEntry: AttendanceEntry = {
           id: Date.now().toString(),
           employeeId: employeeId,
@@ -325,8 +346,10 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
             {currentWeek.length > 0 && (
               <div className="flex items-center justify-center mt-2 space-x-4 text-sm text-gray-600">
                 <div className="flex items-center">
-                  <Dog className="w-4 h-4 mr-1" />
-                  <span>Max 2 Hunde pro Tag</span>
+                  <User className="w-4 h-4 mr-1" />
+                  <span className={`${getActiveCountForDate(selectedDate) >= 25 ? 'text-red-600 font-medium' : ''}`}>
+                    {getActiveCountForDate(selectedDate)}/25 belegt (für {format(selectedDate, 'dd.MM.yyyy', { locale: de })})
+                  </span>
                 </div>
               </div>
             )}
@@ -405,6 +428,7 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
                     {currentWeek.map((date) => {
                       const entry = getAttendanceForEmployeeAndDate(employee.id, date);
                       const dogCount = getDogCountForDate(date);
+                      const displayStatus: AttendanceStatus | null = entry?.status ?? 'absent';
                       return (
                         <td 
                           key={date.toISOString()} 
@@ -412,9 +436,9 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
                           onClick={() => handleCellClick(employee.id, date)}
                         >
                           <div className="flex items-center justify-center">
-                            <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(entry?.status || null)}`}>
-                              {getStatusIcon(entry?.status || null)}
-                              <span className="ml-1">{getStatusText(entry?.status || null)}</span>
+                            <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(displayStatus)}`}>
+                              {getStatusIcon(displayStatus)}
+                              <span className="ml-1">{getStatusText(displayStatus)}</span>
                             </div>
                           </div>
 

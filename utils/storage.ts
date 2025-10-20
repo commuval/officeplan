@@ -16,14 +16,8 @@ const DEFAULT_DEPARTMENTS: Department[] = [
   { id: '5', name: 'Finanzen', color: '#ef4444' },
 ];
 
-// Standard-Mitarbeiter
-const DEFAULT_EMPLOYEES: Employee[] = [
-  { id: '1', name: 'Max Mustermann', department: 'IT' },
-  { id: '2', name: 'Anna Schmidt', department: 'Marketing' },
-  { id: '3', name: 'Tom Weber', department: 'Vertrieb' },
-  { id: '4', name: 'Lisa Müller', department: 'HR' },
-  { id: '5', name: 'Peter Fischer', department: 'Finanzen' },
-];
+// Standard-Mitarbeiter (leer, keine Beispielpersonen)
+const DEFAULT_EMPLOYEES: Employee[] = [];
 
 export const storage = {
   // Abteilungen

@@ -1,9 +1,35 @@
 {
   "employees": [
     {
-      "id": "1760953871765",
+      "id": "1",
+      "name": "Max Mustermann",
+      "department": "IT"
+    },
+    {
+      "id": "2",
+      "name": "Anna Schmidt",
+      "department": "Marketing"
+    },
+    {
+      "id": "3",
+      "name": "Tom Weber",
+      "department": "Vertrieb"
+    },
+    {
+      "id": "4",
+      "name": "Lisa Müller",
+      "department": "HR"
+    },
+    {
+      "id": "5",
+      "name": "Peter Fischer",
+      "department": "Finanzen"
+    },
+    {
+      "id": "1760966154790",
       "name": "Moritz Steinbach",
-      "department": "Unbekannt"
+      "department": "Unbekannt",
+      "ownerId": "4a20294e-55ec-412a-b834-155ed8ebfe0e"
     }
   ],
   "departments": [
@@ -35,18 +61,11 @@
   ],
   "attendance": [
     {
-      "id": "1760953896372",
-      "employeeId": "1760953871765",
+      "id": "1760966156948",
+      "employeeId": "1760966154790",
       "date": "2025-10-20",
-      "status": "present_with_dog"
-    },
-    
-    {
-      "id": "1760954792348",
-      "employeeId": "1760953871765",
-      "date": "2025-10-21",
-      "status": "absent"
-    },
-    
+      "status": "present",
+      "ownerId": "4a20294e-55ec-412a-b834-155ed8ebfe0e"
+    }
   ]
 }
