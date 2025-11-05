@@ -4,6 +4,9 @@ const fs = require('fs').promises;
 const app = express();
 const PORT = process.env.PORT || 8080;
 
+// Backup-Verzeichnis
+const BACKUP_DIR = path.join(__dirname, 'backups');
+
 // Middleware für JSON-Parsing
 app.use(express.json());
 
@@ -36,18 +39,122 @@ const DEFAULT_DATA = {
 };
 
 // Hilfsfunktionen für JSON-Datei
+async function ensureBackupDir() {
+  try {
+    await fs.mkdir(BACKUP_DIR, { recursive: true });
+  } catch (error) {
+    // Verzeichnis existiert bereits oder kann nicht erstellt werden
+    console.log('Backup-Verzeichnis prüfen:', error.message);
+  }
+}
+
+async function createBackup(data) {
+  try {
+    await ensureBackupDir();
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const backupFile = path.join(BACKUP_DIR, `data-backup-${timestamp}.json`);
+    await fs.writeFile(backupFile, JSON.stringify(data, null, 2));
+    console.log(`Backup erstellt: ${backupFile}`);
+    
+    // Alte Backups löschen (nur die letzten 10 behalten)
+    try {
+      const files = await fs.readdir(BACKUP_DIR);
+      const backupFiles = files
+        .filter(f => f.startsWith('data-backup-') && f.endsWith('.json'))
+        .map(f => ({
+          name: f,
+          path: path.join(BACKUP_DIR, f),
+          time: fs.stat(path.join(BACKUP_DIR, f)).then(s => s.mtime)
+        }));
+      
+      const sortedFiles = await Promise.all(backupFiles.map(async f => ({
+        ...f,
+        time: await f.time
+      })));
+      
+      sortedFiles.sort((a, b) => b.time - a.time);
+      
+      // Alte Backups löschen (mehr als 10 behalten)
+      for (let i = 10; i < sortedFiles.length; i++) {
+        await fs.unlink(sortedFiles[i].path);
+        console.log(`Altes Backup gelöscht: ${sortedFiles[i].name}`);
+      }
+    } catch (err) {
+      console.log('Fehler beim Bereinigen alter Backups:', err.message);
+    }
+  } catch (error) {
+    console.error('Fehler beim Erstellen des Backups:', error);
+  }
+}
+
 async function readData() {
   try {
     const data = await fs.readFile(DATA_FILE, 'utf8');
-    return JSON.parse(data);
+    const parsed = JSON.parse(data);
+    // Prüfen ob die Datei wirklich Daten enthält oder nur Standard-Daten sind
+    if (parsed.attendance && parsed.attendance.length > 0) {
+      return parsed;
+    }
+    if (parsed.employees && parsed.employees.length > 0) {
+      return parsed;
+    }
+    return parsed;
   } catch (error) {
-    console.log('Keine Daten-Datei gefunden, erstelle Standard-Daten');
+    console.log('Keine Daten-Datei gefunden, prüfe Backups...');
+    
+    // Versuche das neueste Backup wiederherzustellen
+    try {
+      await ensureBackupDir();
+      const files = await fs.readdir(BACKUP_DIR);
+      const backupFiles = files
+        .filter(f => f.startsWith('data-backup-') && f.endsWith('.json'))
+        .map(f => ({
+          name: f,
+          path: path.join(BACKUP_DIR, f),
+          time: fs.stat(path.join(BACKUP_DIR, f)).then(s => s.mtime)
+        }));
+      
+      if (backupFiles.length > 0) {
+        const sortedFiles = await Promise.all(backupFiles.map(async f => ({
+          ...f,
+          time: await f.time
+        })));
+        
+        sortedFiles.sort((a, b) => b.time - a.time);
+        const latestBackup = sortedFiles[0];
+        
+        console.log(`Wiederherstelle Daten aus Backup: ${latestBackup.name}`);
+        const backupData = await fs.readFile(latestBackup.path, 'utf8');
+        const parsed = JSON.parse(backupData);
+        await writeData(parsed);
+        return parsed;
+      }
+    } catch (backupError) {
+      console.log('Keine Backups gefunden oder Fehler beim Wiederherstellen:', backupError.message);
+    }
+    
+    console.log('Erstelle neue Standard-Daten');
     await writeData(DEFAULT_DATA);
     return DEFAULT_DATA;
   }
 }
 
 async function writeData(data) {
+  // Backup erstellen vor dem Schreiben (nur wenn Daten vorhanden sind)
+  try {
+    const existingData = await fs.readFile(DATA_FILE, 'utf8').catch(() => null);
+    if (existingData) {
+      const parsed = JSON.parse(existingData);
+      // Nur Backup erstellen wenn es bereits Daten gibt
+      if (parsed.attendance && parsed.attendance.length > 0 || 
+          parsed.employees && parsed.employees.length > 0) {
+        await createBackup(parsed);
+      }
+    }
+  } catch (error) {
+    // Fehler beim Backup ignorieren, nicht kritisch
+  }
+  
   await fs.writeFile(DATA_FILE, JSON.stringify(data, null, 2));
 }
 

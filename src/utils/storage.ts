@@ -90,8 +90,7 @@ export const storage = {
 
   addAttendanceEntry: async (entry: AttendanceEntry): Promise<AttendanceEntry> => {
     try {
-      const ownerId = entry.ownerId ?? getDeviceId();
-      const newEntry = await api.addAttendanceEntry({ ...entry, ownerId });
+      const newEntry = await api.addAttendanceEntry(entry);
       notifyDataChange();
       return newEntry;
     } catch (error) {

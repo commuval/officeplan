@@ -14,7 +14,8 @@ export interface AttendanceEntry {
   startTime?: string;
   endTime?: string;
   notes?: string;
-  ownerId?: string; // lokale Ownership: nur Ersteller darf bearbeiten/löschen
+  ownerId?: string; // Device-ID des Erstellers (für automatische Erkennung)
+  password?: string; // Optionales Passwort für geräteübergreifenden Zugriff
 }
 
 export interface Department {

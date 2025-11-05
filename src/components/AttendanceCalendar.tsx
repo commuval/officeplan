@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { format, startOfWeek, addDays, isToday } from 'date-fns';
 import { de } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, User, X, Plus, Dog, Trash2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, User, X, Plus, Dog, Trash2, Lock } from 'lucide-react';
 import { Employee, AttendanceEntry, AttendanceStatus } from '../types';
 import { storage } from '../utils/storage';
 import { getDeviceId } from '../utils/identity';
@@ -16,6 +16,10 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
   const [attendance, setAttendance] = useState<AttendanceEntry[]>([]);
   const [currentWeek, setCurrentWeek] = useState<Date[]>([]);
   const [newEmployeeName, setNewEmployeeName] = useState('');
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [passwordModalType, setPasswordModalType] = useState<'set' | 'verify'>('set');
+  const [passwordInput, setPasswordInput] = useState('');
+  const [pendingAction, setPendingAction] = useState<{employeeId: string, date: Date, entry?: AttendanceEntry} | null>(null);
 
   useEffect(() => {
     console.log('AttendanceCalendar - Initialisierung');
@@ -153,8 +157,34 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
     ).length;
   };
 
+  const canModifyEntry = (entry?: AttendanceEntry | null): boolean => {
+    const deviceId = getDeviceId();
+    if (!entry) return true; // Neue Einträge immer erlaubt
+    if (!entry.ownerId) return true; // Alte Einträge ohne Owner
+    if (entry.ownerId === deviceId) return true; // Eigenes Gerät
+    return false; // Fremdes Gerät - Passwort nötig
+  };
+
   const handleCellClick = async (employeeId: string, date: Date) => {
     const existingEntry = getAttendanceForEmployeeAndDate(employeeId, date);
+    
+    // Prüfen ob Bearbeitung erlaubt ist
+    if (existingEntry && !canModifyEntry(existingEntry)) {
+      // Fremder Eintrag - Passwort erforderlich
+      if (existingEntry.password) {
+        // Passwort ist gesetzt - Abfrage erforderlich
+        setPendingAction({ employeeId, date, entry: existingEntry });
+        setPasswordModalType('verify');
+        setPasswordInput('');
+        setShowPasswordModal(true);
+        return;
+      } else {
+        // Kein Passwort gesetzt - nicht bearbeitbar
+        alert('Dieser Eintrag wurde von einem anderen Gerät erstellt und hat kein Passwort. Er kann nicht bearbeitet werden.');
+        return;
+      }
+    }
+    
     const dogCount = getDogCountForDate(date);
     const activeCount = getActiveCountForDate(date);
     const dateStr = format(date, 'yyyy-MM-dd');
@@ -202,22 +232,12 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
         
         await storage.addAttendanceEntry(updatedEntry);
       } else {
-        // Neuen Eintrag erstellen - immer mit "Anwesend" beginnen
-        const newStatus: AttendanceStatus = 'present';
-        
-        // Warnung für neuen aktiven Eintrag ab der 26. Person
-        if (activeCount + 1 > 25) {
-          alert('Hinweis: Das Büro ist bereits voll (max. 25 Personen). Du kannst dich trotzdem eintragen.');
-        }
-
-        const newEntry: AttendanceEntry = {
-          id: Date.now().toString(),
-          employeeId: employeeId,
-          date: dateStr,
-          status: newStatus,
-        };
-        
-        await storage.addAttendanceEntry(newEntry);
+        // Neuen Eintrag erstellen - Passwort-Abfrage anzeigen
+        setPendingAction({ employeeId, date });
+        setPasswordModalType('set');
+        setPasswordInput('');
+        setShowPasswordModal(true);
+        return;
       }
       
       // Daten neu laden um sicherzustellen, dass alles synchron ist
@@ -231,6 +251,110 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
         totalAttendanceEntries: updatedAttendance.length,
         entriesForDate: updatedAttendance.filter(entry => entry.date === dateStr).length
       });
+    } catch (error) {
+      console.error('Fehler beim Aktualisieren der Anwesenheit:', error);
+      alert('Fehler beim Speichern der Anwesenheit. Bitte versuchen Sie es erneut.');
+    }
+  };
+
+  const handlePasswordSubmit = async () => {
+    if (!pendingAction) return;
+
+    const { employeeId, date, entry } = pendingAction;
+    const dateStr = format(date, 'yyyy-MM-dd');
+
+    if (passwordModalType === 'verify') {
+      // Passwort verifizieren
+      if (!entry) return;
+      
+      if (passwordInput !== entry.password) {
+        alert('Falsches Passwort!');
+        return;
+      }
+      
+      // Passwort korrekt - Eintrag bearbeiten
+      setShowPasswordModal(false);
+      setPendingAction(null);
+      setPasswordInput('');
+      
+      // Jetzt den eigentlichen Click durchführen
+      await performEntryUpdate(employeeId, date, entry);
+    } else {
+      // Neues Passwort setzen und Eintrag erstellen
+      const dogCount = getDogCountForDate(date);
+      const activeCount = getActiveCountForDate(date);
+      
+      // Warnung für neuen aktiven Eintrag ab der 26. Person
+      if (activeCount + 1 > 25) {
+        alert('Hinweis: Das Büro ist bereits voll (max. 25 Personen). Du kannst dich trotzdem eintragen.');
+      }
+
+      const newEntry: AttendanceEntry = {
+        id: Date.now().toString(),
+        employeeId: employeeId,
+        date: dateStr,
+        status: 'present',
+        ownerId: getDeviceId(),
+        password: passwordInput || undefined, // Nur setzen wenn nicht leer
+      };
+      
+      try {
+        await storage.addAttendanceEntry(newEntry);
+        const updatedAttendance = await storage.getAttendance();
+        setAttendance(updatedAttendance);
+        
+        setShowPasswordModal(false);
+        setPendingAction(null);
+        setPasswordInput('');
+      } catch (error) {
+        console.error('Fehler beim Speichern der Anwesenheit:', error);
+        alert('Fehler beim Speichern der Anwesenheit. Bitte versuchen Sie es erneut.');
+      }
+    }
+  };
+
+  const performEntryUpdate = async (employeeId: string, date: Date, existingEntry: AttendanceEntry) => {
+    const dateStr = format(date, 'yyyy-MM-dd');
+    const dogCount = getDogCountForDate(date);
+    const activeCount = getActiveCountForDate(date);
+
+    try {
+      // Gewünschte Reihenfolge: absent -> present -> present_with_dog -> absent
+      let newStatus: AttendanceStatus;
+
+      if (existingEntry.status === 'absent') {
+        newStatus = 'present';
+      } else if (existingEntry.status === 'present') {
+        // Nächster Schritt wäre "mit Hund", aber nur wenn Hundelimit nicht erreicht
+        if (dogCount >= 2) {
+          newStatus = 'absent';
+        } else {
+          newStatus = 'present_with_dog';
+        }
+      } else if (existingEntry.status === 'present_with_dog') {
+        newStatus = 'absent';
+      } else {
+        newStatus = 'present';
+      }
+      
+      // Warnung ab der 26. aktiven Person (present/present_with_dog) am Tag
+      const wasActive = existingEntry.status === 'present' || existingEntry.status === 'present_with_dog';
+      const willBeActive = newStatus === 'present' || newStatus === 'present_with_dog';
+      const projectedActive = activeCount + (willBeActive && !wasActive ? 1 : 0) - (!willBeActive && wasActive ? 1 : 0);
+      if (projectedActive > 25 && willBeActive) {
+        alert('Hinweis: Das Büro ist bereits voll (max. 25 Personen). Du kannst dich trotzdem eintragen.');
+      }
+
+      const updatedEntry: AttendanceEntry = {
+        ...existingEntry,
+        status: newStatus,
+      };
+      
+      await storage.addAttendanceEntry(updatedEntry);
+      
+      // Daten neu laden um sicherzustellen, dass alles synchron ist
+      const updatedAttendance = await storage.getAttendance();
+      setAttendance(updatedAttendance);
     } catch (error) {
       console.error('Fehler beim Aktualisieren der Anwesenheit:', error);
       alert('Fehler beim Speichern der Anwesenheit. Bitte versuchen Sie es erneut.');
@@ -418,6 +542,7 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
                       const entry = getAttendanceForEmployeeAndDate(employee.id, date);
                       const dogCount = getDogCountForDate(date);
                       const displayStatus: AttendanceStatus | null = entry?.status ?? 'absent';
+                      const isProtected = entry && entry.password && !canModifyEntry(entry);
                       return (
                         <td 
                           key={date.toISOString()} 
@@ -428,6 +553,9 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
                             <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(displayStatus)}`}>
                               {getStatusIcon(displayStatus)}
                               <span className="ml-1">{getStatusText(displayStatus)}</span>
+                              {isProtected && (
+                                <Lock className="w-3 h-3 ml-1 opacity-50" title="Passwortgeschützt" />
+                              )}
                             </div>
                           </div>
 
@@ -479,6 +607,73 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
                 </tr>
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* Passwort-Modal */}
+      {showPasswordModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">
+                {passwordModalType === 'set' ? 'Passwort festlegen (optional)' : 'Passwort eingeben'}
+              </h3>
+              
+              <div className="space-y-4">
+                {passwordModalType === 'set' && (
+                  <p className="text-sm text-gray-600">
+                    Du kannst optional ein Passwort festlegen, um diesen Eintrag von anderen Geräten aus bearbeiten zu können.
+                    Wenn du kein Passwort setzt, kannst du den Eintrag nur von diesem Gerät aus bearbeiten.
+                  </p>
+                )}
+                {passwordModalType === 'verify' && (
+                  <p className="text-sm text-gray-600">
+                    Dieser Eintrag wurde von einem anderen Gerät erstellt. Bitte gib das Passwort ein, um ihn zu bearbeiten.
+                  </p>
+                )}
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Passwort {passwordModalType === 'set' && '(optional)'}
+                  </label>
+                  <input
+                    type="password"
+                    value={passwordInput}
+                    onChange={(e) => setPasswordInput(e.target.value)}
+                    className="input-field"
+                    placeholder={passwordModalType === 'set' ? 'Leer lassen für kein Passwort' : 'Passwort eingeben'}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        handlePasswordSubmit();
+                      }
+                    }}
+                    autoFocus
+                  />
+                </div>
+
+                <div className="flex justify-end space-x-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowPasswordModal(false);
+                      setPendingAction(null);
+                      setPasswordInput('');
+                    }}
+                    className="btn-secondary"
+                  >
+                    Abbrechen
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handlePasswordSubmit}
+                    className="btn-primary"
+                  >
+                    {passwordModalType === 'set' ? 'Erstellen' : 'Bestätigen'}
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}
