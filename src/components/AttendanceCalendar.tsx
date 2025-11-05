@@ -554,7 +554,9 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
                               {getStatusIcon(displayStatus)}
                               <span className="ml-1">{getStatusText(displayStatus)}</span>
                               {isProtected && (
-                                <Lock className="w-3 h-3 ml-1 opacity-50" title="Passwortgeschützt" />
+                                <span title="Passwortgeschützt">
+                                  <Lock className="w-3 h-3 ml-1 opacity-50" />
+                                </span>
                               )}
                             </div>
                           </div>
