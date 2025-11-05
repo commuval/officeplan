@@ -199,6 +199,18 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
     
     try {
       if (existingEntry) {
+        // Bestehenden Eintrag aktualisieren
+        // Wenn vom eigenen Gerät und noch kein Passwort gesetzt → Passwort-Modal anzeigen
+        const deviceId = getDeviceId();
+        if (!existingEntry.password && existingEntry.ownerId === deviceId && existingEntry.status === 'absent') {
+          // Erster "echter" Eintrag - Passwort-Option anbieten
+          setPendingAction({ employeeId, date, entry: existingEntry });
+          setPasswordModalType('set');
+          setPasswordInput('');
+          setShowPasswordModal(true);
+          return;
+        }
+        
         // Gewünschte Reihenfolge: absent -> present -> present_with_dog -> absent
         let newStatus: AttendanceStatus;
 
@@ -232,7 +244,7 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
         
         await storage.addAttendanceEntry(updatedEntry);
       } else {
-        // Neuen Eintrag erstellen - Passwort-Abfrage anzeigen
+        // Komplett neuen Eintrag erstellen - Passwort-Abfrage anzeigen
         setPendingAction({ employeeId, date });
         setPasswordModalType('set');
         setPasswordInput('');
@@ -280,26 +292,48 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
       // Jetzt den eigentlichen Click durchführen
       await performEntryUpdate(employeeId, date, entry);
     } else {
-      // Neues Passwort setzen und Eintrag erstellen
+      // Neues Passwort setzen und Eintrag erstellen/aktualisieren
       const dogCount = getDogCountForDate(date);
       const activeCount = getActiveCountForDate(date);
       
-      // Warnung für neuen aktiven Eintrag ab der 26. Person
-      if (activeCount + 1 > 25) {
-        alert('Hinweis: Das Büro ist bereits voll (max. 25 Personen). Du kannst dich trotzdem eintragen.');
-      }
-
-      const newEntry: AttendanceEntry = {
-        id: Date.now().toString(),
-        employeeId: employeeId,
-        date: dateStr,
-        status: 'present',
-        ownerId: getDeviceId(),
-        password: passwordInput || undefined, // Nur setzen wenn nicht leer
-      };
-      
       try {
-        await storage.addAttendanceEntry(newEntry);
+        if (entry) {
+          // Bestehenden Eintrag aktualisieren (z.B. von absent zu present)
+          let newStatus: AttendanceStatus = 'present';
+          
+          const wasActive = entry.status === 'present' || entry.status === 'present_with_dog';
+          const willBeActive = true; // wird auf present gesetzt
+          const projectedActive = activeCount + (willBeActive && !wasActive ? 1 : 0);
+          
+          if (projectedActive > 25) {
+            alert('Hinweis: Das Büro ist bereits voll (max. 25 Personen). Du kannst dich trotzdem eintragen.');
+          }
+          
+          const updatedEntry: AttendanceEntry = {
+            ...entry,
+            status: newStatus,
+            password: passwordInput || undefined,
+          };
+          
+          await storage.addAttendanceEntry(updatedEntry);
+        } else {
+          // Komplett neuen Eintrag erstellen
+          if (activeCount + 1 > 25) {
+            alert('Hinweis: Das Büro ist bereits voll (max. 25 Personen). Du kannst dich trotzdem eintragen.');
+          }
+
+          const newEntry: AttendanceEntry = {
+            id: Date.now().toString(),
+            employeeId: employeeId,
+            date: dateStr,
+            status: 'present',
+            ownerId: getDeviceId(),
+            password: passwordInput || undefined, // Nur setzen wenn nicht leer
+          };
+          
+          await storage.addAttendanceEntry(newEntry);
+        }
+        
         const updatedAttendance = await storage.getAttendance();
         setAttendance(updatedAttendance);
         
