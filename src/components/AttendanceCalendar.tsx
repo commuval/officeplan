@@ -468,39 +468,6 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
     }
   };
 
-  const handleDeleteEntry = async (employeeId: string, date: Date, entry: AttendanceEntry) => {
-    // Prüfen ob Bearbeitung erlaubt ist
-    if (!canModifyEntry(entry)) {
-      // Fremder Eintrag - Passwort erforderlich
-      if (entry.password) {
-        // Prüfen ob localStorage-Passwort passt
-        const storedPassword = getStoredPassword();
-        if (!storedPassword || storedPassword !== entry.password) {
-          // Passwort-Abfrage erforderlich
-          alert('Dieser Eintrag ist passwortgeschützt. Bitte bearbeite den Eintrag zuerst mit dem richtigen Passwort, um ihn löschen zu können.');
-          return;
-        }
-      } else {
-        alert('Dieser Eintrag wurde von einem anderen Gerät erstellt und hat kein Passwort. Er kann nicht gelöscht werden.');
-        return;
-      }
-    }
-
-    const employee = employees.find(emp => emp.id === employeeId);
-    const dateStr = format(date, 'yyyy-MM-dd');
-    
-    if (window.confirm(`Eintrag für ${employee?.name} am ${format(date, 'dd.MM.yyyy', { locale: de })} löschen?`)) {
-      try {
-        await storage.deleteAttendanceEntry(employeeId, dateStr);
-        const updatedAttendance = await storage.getAttendance();
-        setAttendance(updatedAttendance);
-      } catch (error) {
-        console.error('Fehler beim Löschen des Eintrags:', error);
-        alert('Fehler beim Löschen des Eintrags. Bitte versuchen Sie es erneut.');
-      }
-    }
-  };
-
   const handleDeleteEmployee = async (employeeId: string) => {
     const employee = employees.find(emp => emp.id === employeeId);
     if (!employee) return;
@@ -623,7 +590,7 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {employees.map((employee) => (
-                  <tr key={employee.id} className="hover:bg-gray-50 group">
+                  <tr key={employee.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3 whitespace-nowrap">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center">
@@ -660,22 +627,15 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
                       const entry = getAttendanceForEmployeeAndDate(employee.id, date);
                       const dogCount = getDogCountForDate(date);
                       const displayStatus: AttendanceStatus | null = entry?.status ?? 'absent';
-                      
-                      // Lock-Symbol nur anzeigen wenn Passwort nötig UND nicht im localStorage vorhanden/passend
-                      const storedPassword = getStoredPassword();
-                      const isProtected = entry && entry.password && !canModifyEntry(entry) && 
-                                         (!storedPassword || storedPassword !== entry.password);
-                      
+                      const isProtected = entry && entry.password && !canModifyEntry(entry);
                       return (
                         <td 
                           key={date.toISOString()} 
-                          className="px-2 py-3 text-center relative"
+                          className="px-2 py-3 text-center cursor-pointer hover:bg-gray-100 transition-colors relative"
+                          onClick={() => handleCellClick(employee.id, date)}
                         >
-                          <div className="flex items-center justify-center gap-1">
-                            <div 
-                              className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(displayStatus)} cursor-pointer hover:opacity-80 transition-opacity`}
-                              onClick={() => handleCellClick(employee.id, date)}
-                            >
+                          <div className="flex items-center justify-center">
+                            <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(displayStatus)}`}>
                               {getStatusIcon(displayStatus)}
                               <span className="ml-1">{getStatusText(displayStatus)}</span>
                               {isProtected && (
@@ -684,18 +644,6 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
                                 </span>
                               )}
                             </div>
-                            {entry && entry.status !== 'absent' && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDeleteEntry(employee.id, date, entry);
-                                }}
-                                className="p-1 hover:bg-red-100 rounded-full text-red-600 transition-colors opacity-0 group-hover:opacity-100"
-                                title="Eintrag löschen"
-                              >
-                                <Trash2 className="w-3 h-3" />
-                              </button>
-                            )}
                           </div>
 
                         </td>
