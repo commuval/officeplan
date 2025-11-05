@@ -153,21 +153,8 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
     ).length;
   };
 
-  const canModifyEntry = (entry?: AttendanceEntry | null) => {
-    const deviceId = getDeviceId();
-    if (!entry) return true; // neues Anlegen immer erlaubt
-    return !entry.ownerId || entry.ownerId === deviceId;
-  };
-
   const handleCellClick = async (employeeId: string, date: Date) => {
     const existingEntry = getAttendanceForEmployeeAndDate(employeeId, date);
-    const isOwnEmployee = JSON.parse(localStorage.getItem('local_employees') || '[]').includes(employeeId);
-    if (existingEntry && !canModifyEntry(existingEntry)) {
-      return; // Fremde Einträge nicht veränderbar
-    }
-    if (!existingEntry && !isOwnEmployee) {
-      return; // Neue Einträge nur für eigene Mitarbeiter
-    }
     const dogCount = getDogCountForDate(date);
     const activeCount = getActiveCountForDate(date);
     const dateStr = format(date, 'yyyy-MM-dd');
@@ -228,7 +215,6 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
           employeeId: employeeId,
           date: dateStr,
           status: newStatus,
-          ownerId: getDeviceId(),
         };
         
         await storage.addAttendanceEntry(newEntry);
