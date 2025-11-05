@@ -165,6 +165,14 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
     return false; // Fremdes Gerät - Passwort nötig
   };
 
+  const getStoredPassword = (): string | null => {
+    return localStorage.getItem('attendance_password');
+  };
+
+  const setStoredPassword = (password: string): void => {
+    localStorage.setItem('attendance_password', password);
+  };
+
   const handleCellClick = async (employeeId: string, date: Date) => {
     const existingEntry = getAttendanceForEmployeeAndDate(employeeId, date);
     
@@ -172,12 +180,20 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
     if (existingEntry && !canModifyEntry(existingEntry)) {
       // Fremder Eintrag - Passwort erforderlich
       if (existingEntry.password) {
-        // Passwort ist gesetzt - Abfrage erforderlich
-        setPendingAction({ employeeId, date, entry: existingEntry });
-        setPasswordModalType('verify');
-        setPasswordInput('');
-        setShowPasswordModal(true);
-        return;
+        // Prüfen ob localStorage-Passwort passt
+        const storedPassword = getStoredPassword();
+        if (storedPassword && storedPassword === existingEntry.password) {
+          // Passwort stimmt - direkt bearbeiten
+          await performEntryUpdate(employeeId, date, existingEntry);
+          return;
+        } else {
+          // Passwort stimmt nicht oder fehlt - Abfrage erforderlich
+          setPendingAction({ employeeId, date, entry: existingEntry });
+          setPasswordModalType('verify');
+          setPasswordInput('');
+          setShowPasswordModal(true);
+          return;
+        }
       } else {
         // Kein Passwort gesetzt - nicht bearbeitbar
         alert('Dieser Eintrag wurde von einem anderen Gerät erstellt und hat kein Passwort. Er kann nicht bearbeitet werden.');
@@ -197,13 +213,14 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
       allEntriesForDate: attendance.filter(entry => entry.date === dateStr)
     });
     
+    // Prüfen ob localStorage-Passwort vorhanden ist
+    const storedPassword = getStoredPassword();
+    
     try {
       if (existingEntry) {
         // Bestehenden Eintrag aktualisieren
-        // Wenn vom eigenen Gerät und noch kein Passwort gesetzt → Passwort-Modal anzeigen
-        const deviceId = getDeviceId();
-        if (!existingEntry.password && existingEntry.ownerId === deviceId && existingEntry.status === 'absent') {
-          // Erster "echter" Eintrag - Passwort-Option anbieten
+        // Wenn kein Passwort im localStorage → Modal anzeigen
+        if (!storedPassword) {
           setPendingAction({ employeeId, date, entry: existingEntry });
           setPasswordModalType('set');
           setPasswordInput('');
@@ -240,16 +257,33 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
         const updatedEntry: AttendanceEntry = {
           ...existingEntry,
           status: newStatus,
+          ownerId: getDeviceId(),
+          password: storedPassword, // Passwort aus localStorage
         };
         
         await storage.addAttendanceEntry(updatedEntry);
       } else {
-        // Komplett neuen Eintrag erstellen - Passwort-Abfrage anzeigen
-        setPendingAction({ employeeId, date });
-        setPasswordModalType('set');
-        setPasswordInput('');
-        setShowPasswordModal(true);
-        return;
+        // Komplett neuen Eintrag erstellen
+        // Wenn kein Passwort im localStorage → Modal anzeigen
+        if (!storedPassword) {
+          setPendingAction({ employeeId, date });
+          setPasswordModalType('set');
+          setPasswordInput('');
+          setShowPasswordModal(true);
+          return;
+        }
+        
+        // Eintrag mit localStorage-Passwort erstellen
+        const newEntry: AttendanceEntry = {
+          id: Date.now().toString(),
+          employeeId: employeeId,
+          date: dateStr,
+          status: 'present',
+          ownerId: getDeviceId(),
+          password: storedPassword,
+        };
+        
+        await storage.addAttendanceEntry(newEntry);
       }
       
       // Daten neu laden um sicherzustellen, dass alles synchron ist
@@ -279,12 +313,20 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
       // Passwort verifizieren
       if (!entry) return;
       
+      if (!passwordInput.trim()) {
+        alert('Bitte gib ein Passwort ein!');
+        return;
+      }
+      
       if (passwordInput !== entry.password) {
         alert('Falsches Passwort!');
         return;
       }
       
-      // Passwort korrekt - Eintrag bearbeiten
+      // Passwort korrekt - im localStorage speichern für zukünftige Verwendung
+      setStoredPassword(passwordInput);
+      
+      // Eintrag bearbeiten
       setShowPasswordModal(false);
       setPendingAction(null);
       setPasswordInput('');
@@ -292,7 +334,15 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
       // Jetzt den eigentlichen Click durchführen
       await performEntryUpdate(employeeId, date, entry);
     } else {
-      // Neues Passwort setzen und Eintrag erstellen/aktualisieren
+      // Neues Passwort setzen (Pflichtfeld!)
+      if (!passwordInput.trim()) {
+        alert('Bitte gib ein Passwort ein! Das Passwort wird benötigt, um deine Einträge von anderen Geräten aus bearbeiten zu können.');
+        return;
+      }
+      
+      // Passwort im localStorage speichern
+      setStoredPassword(passwordInput);
+      
       const dogCount = getDogCountForDate(date);
       const activeCount = getActiveCountForDate(date);
       
@@ -312,7 +362,8 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
           const updatedEntry: AttendanceEntry = {
             ...entry,
             status: newStatus,
-            password: passwordInput || undefined,
+            ownerId: getDeviceId(),
+            password: passwordInput,
           };
           
           await storage.addAttendanceEntry(updatedEntry);
@@ -328,7 +379,7 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
             date: dateStr,
             status: 'present',
             ownerId: getDeviceId(),
-            password: passwordInput || undefined, // Nur setzen wenn nicht leer
+            password: passwordInput,
           };
           
           await storage.addAttendanceEntry(newEntry);
@@ -653,14 +704,14 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
           <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
             <div className="mt-3">
               <h3 className="text-lg font-medium text-gray-900 mb-4">
-                {passwordModalType === 'set' ? 'Passwort festlegen (optional)' : 'Passwort eingeben'}
+                {passwordModalType === 'set' ? 'Passwort festlegen' : 'Passwort eingeben'}
               </h3>
               
               <div className="space-y-4">
                 {passwordModalType === 'set' && (
                   <p className="text-sm text-gray-600">
-                    Du kannst optional ein Passwort festlegen, um diesen Eintrag von anderen Geräten aus bearbeiten zu können.
-                    Wenn du kein Passwort setzt, kannst du den Eintrag nur von diesem Gerät aus bearbeiten.
+                    Bitte lege ein Passwort fest. Dieses Passwort wird auf diesem Gerät gespeichert und ermöglicht es dir, 
+                    deine Einträge auch von anderen Geräten aus zu bearbeiten. Du brauchst es nur einmal pro Gerät einzugeben.
                   </p>
                 )}
                 {passwordModalType === 'verify' && (
@@ -671,20 +722,21 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ selectedDate, o
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Passwort {passwordModalType === 'set' && '(optional)'}
+                    Passwort
                   </label>
                   <input
                     type="password"
                     value={passwordInput}
                     onChange={(e) => setPasswordInput(e.target.value)}
                     className="input-field"
-                    placeholder={passwordModalType === 'set' ? 'Leer lassen für kein Passwort' : 'Passwort eingeben'}
+                    placeholder="Passwort eingeben"
                     onKeyPress={(e) => {
                       if (e.key === 'Enter') {
                         handlePasswordSubmit();
                       }
                     }}
                     autoFocus
+                    required
                   />
                 </div>
 
